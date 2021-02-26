@@ -1,0 +1,6 @@
+[submodule "sokol-tools-bin"]
+	path = sokol-tools-bin
+	url = https://github.com/floooh/sokol-tools-bin/
+[submodule "twemoji"]
+	path = twemoji
+	url = https://github.com/twitter/twemoji/

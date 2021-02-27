@@ -1,4 +1,4 @@
-//------------------------------------------------------------------------------
+
 //  game.c
 //------------------------------------------------------------------------------
 
@@ -58,12 +58,9 @@ struct Ent {
     u64 props[(EntProp_COUNT + 63)/64];
 
     /* appearance */
-    Material material;
-    Origin origin;
     Shape shape;
     Vec4 base_color, tint_color;
-    ArtSource art_source;
-    ArtSourceData art_data;
+    sg_image img;
 
     /* bob animation */
     f32 bob_scale, bob_freq;
@@ -215,16 +212,10 @@ Mat4 unscaled_ent_mat(Ent *e) {
     if (e->bob_freq != 0.0f)
         pos.y += (f32) (sin(world.elapsed / e->bob_freq) * e->bob_scale);
 
-    if (e->origin == Origin_Center)
-        rot.x -= PI32 / 2.0f;
-
     Quat rot_q = mulQ(mulQ(axis_angleQ(vec3_x(), rot.x),
                            axis_angleQ(vec3_y(), rot.y)),
                            axis_angleQ(vec3_z(), rot.z));
     Mat4 mat = mul4x4(translate4x4(pos), quat4x4(rot_q));
-
-    if (e->origin == Origin_Center && e->shape == Shape_Plane)
-        mat = mul4x4(mat, translate4x4(vec3(0.0f, e->scale.x / -2.0f, 0.0f)));
 
     if (e->parent && !e->parent->independent_children)
         mat = mul4x4(unscaled_ent_mat(e->parent), mat);
@@ -236,32 +227,26 @@ void draw_ent(Ent *e) {
     Mat4 mat = unscaled_ent_mat(e);
     Vec3 scale = e->scale;
 
-    if (e->origin == Origin_Center) {
-        f32 temp = scale.y;
-        scale.y = scale.x;
-        scale.x = temp;
-    }
-
     Draw draw = (Draw) {
         .mat        = mul4x4(mat, scale4x4(scale)),
         .base_color = e->base_color,
         .tint_color = e->tint_color,
-        .origin     = e->origin,
-        .art_data   = e->art_data,
+        .img        = e->img,
         .shape      = e->shape,
-        .art_source = e->art_source,
     };
-    submit_draw(draw, e->material);
+    submit_draw(draw);
 }
 
 
 Ent *wall_at(Vec3 p, f32 height) {
     Ent *w = add_ent();
-    w->art_data.art = Art_Fog;
-    w->material = Material_Opaque;
+    w->img = get_art(Art_Fog);
     w->shape = Shape_Cube;
-    w->base_color = mul4f(vec4(0.58f, 0.51f, 0.85f, 1.0f), 0.7f);
-    w->tint_color = mul4f(w->base_color, 0.6f);
+    Vec4 color = vec4(0.58f, 0.51f, 0.85f, 1.0f);
+    w->base_color = mul4f(color, 0.3f);
+    w->base_color.w = 1.0f;
+    w->tint_color = mul4f(color, 0.5f);
+    w->tint_color.w = 1.0f;
     w->pos = p;
     w->scale.y = height;
     return w;
@@ -275,7 +260,7 @@ void init(void) {
     give_ent_prop(world.cam, EntProp_Hidden);
 
     sfetch_setup(&(sfetch_desc_t){ .num_lanes = Art_COUNT });
-    begin_renderer_loading();
+    rendr_load();
     stm_setup();
 
     world.start_time = stm_now();
@@ -321,9 +306,9 @@ Ent *wall_test(Vec3 p) {
 
 void gen_castle_ground(Vec3 origin) {
     Ent *e = add_ent();
-    e->shape = Shape_Plane;
+    // e->pos.y = 0.01f;
+    e->shape = Shape_GroundPlane;
     e->pos = origin;
-    e->origin = Origin_Center;
     e->scale = vec3f(15.0f);
 
     const Art flat_plants[] = { Art_FourLeafClover, Art_Shamrock, Art_Seedling };
@@ -333,21 +318,21 @@ void gen_castle_ground(Vec3 origin) {
         Ent c = default_ent();
         c.shape = Shape_Circle;
         c.scale = mul3f(c.scale, 0.5f);
-        c.base_color = vec4(0.66f, 0.93f, 0.45f, 1.0f);
-        c.art_source = ArtSource_None;
+        c.base_color = vec4(0.125f, 0.3f, 0.195f, 1.0f);
+        c.img = EMPTY_IMAGE;
         draw_ent(&c);
     }
 
     {
         Ent l = default_ent();
-        l.tint_color = vec4f(0.43f);
+        l.tint_color = vec4(0.08f, 0.13f, 0.17f, 0.65f);
         l.scale = mul3f(l.scale, (1.0f / 15.0f) * 0.3f);
 
         const int max = 70;
         for (int x = 0; x < max; x++) {
         for (int y = 0; y < max; y++) {
             l.rot.z = PI32 * randf() * 0.25f + (PI32 * (3.0f / 8.0f));
-            l.art_data.art = flat_plants[rand_u32() % LEN(flat_plants)];
+            l.img = get_art(flat_plants[rand_u32() % LEN(flat_plants)]);
 
             const f32 w = sqrtf(3.0f), h = 2.0f;
             l.pos.x = ((f32) (x * 2 + (y & 1)) / 2.0f * w) / 20.0f - 0.5f;
@@ -364,7 +349,7 @@ void gen_castle_ground(Vec3 origin) {
         Vec3 outer = mul3f(l.scale, 1.3f);
         Vec3 inner = mul3f(l.scale, 0.9f);
         for (int i = 0; i < circle; i++) {
-            l.art_data.art = flat_plants[rand_u32() % LEN(flat_plants)];
+            l.img = get_art(flat_plants[rand_u32() % LEN(flat_plants)]);
 
             f32 r = ((f32) i / (f32) circle) * TAU32;
             l.rot.z = r - PI32/2.0f;
@@ -390,10 +375,10 @@ void gen_castle_ground(Vec3 origin) {
         for (int x = -max; x <= max; x++) {
         for (int y = -max; y <= max; y++) {
             Ent m = default_ent();
-            m.art_data.art = Art_Moon;
+            m.img = get_art(Art_Moon);
             m.scale = mul3f(m.scale, (1.0f / 15.0f) * 0.85f);
             m.pos = vec3f(0.0f);
-            m.tint_color = vec4(1.9f, 1.3f, 1.9f, 1.0f);
+            Vec4 color = vec4(0.225f, 0.035f, 0.05f, 1.0f);
 
             const f32 w = sqrtf(3.0f), h = 2.0f;
             m.pos.x += ((f32) (x * 2 + (y & 1)) / 2.0f * w) / grid_scale;
@@ -422,40 +407,51 @@ void gen_castle_ground(Vec3 origin) {
                 if (wall) take_ent_prop(wall, EntProp_Active);
             } else {
                 Vec2 pt = vec2(world_pos.x, world_pos.z);
-                f32 simp = simplex2(div2f(pt, 24.0f)) * 0.6f +
-                           simplex2(div2f(pt,  3.0f)) * 0.4f +
-                           simplex2(div2f(pt,  6.5f)) * 0.45f;
-                if (simp < 0.55f)
+                f32 simp = simplex2(div2f(pt, 24.0f)) * 0.2f +
+                           simplex2(div2f(pt,  2.0f)) * 0.5f +
+                           simplex2(div2f(pt,  0.3f)) * 0.5f ;
+                if (simp < 0.35f)
                     continue;
                 if (wall_test(world_pos))
                     continue;
 
+                simp += 0.1f;
                 Ent *p = add_ent();
                 p->scale = vec3f(simp);
                 p->pos = world_pos;
-                p->art_data.art = simp > 0.85f ? Art_Tanabata : Art_Herb;
+                p->img = get_art(simp > 0.775f ? Art_Tanabata : Art_Herb);
                 continue;
             };
 
             // m.tint_color.x += 0.05f * randf();
 
+            m.tint_color = color;
             draw_ent(&m);
-            m.tint_color = mul4f(m.tint_color, 0.8f);
+
+            f32 spray_alpha = 0.2f;
+            f32 spray = 0.1f;
+            m.tint_color = vec4(spray, spray, spray, spray_alpha);
+            draw_ent(&m);
+
             m.pos.y -= (m.scale.x * 1.35f - m.scale.x) / 2.0f;
             m.scale = mul3f(m.scale, 1.35f);
+
+            m.tint_color = mul4f(color, 0.8f);
+            draw_ent(&m);
+
+            m.tint_color = vec4(spray, spray, spray, spray_alpha * 0.8f);
             draw_ent(&m);
         }
         }
     }
-    e->art_source = ArtSource_Offscreen;
-    e->art_data.offscreen_tex = end_offscreen();
+    e->img = end_offscreen();
 }
 
 void generate_world() {
     /* cloud */
     for (int i = 0; i < 30; i++) {
         Ent *e = add_ent();
-        e->art_data.art = cloud_art[rand_u32() % LEN(cloud_art)];
+        e->img = get_art(cloud_art[rand_u32() % LEN(cloud_art)]);
         e->bob_scale = 0.2f + randf() * 0.3f;
         e->bob_freq = 2.0f + randf() * 1.0f;
         e->scale = mul3f(e->scale, 2.0f);
@@ -468,22 +464,26 @@ void generate_world() {
         add_ent_child(world.cam, e);
     }
 
-    Vec3 origin = vec3(0.0f, 0.0f, -5.0f);
+    Vec3 origin = vec3(0.0f, 0.0f, 0.0f);
     world.cam->pos = origin;
     gen_castle(origin, 6.0f);
     gen_castle_ground(origin);
     
     {
         Ent *e = add_ent();
-        e->art_data.art = Art_Wizard;
+        e->img = get_art(Art_Wizard);
         e->pos = add3(origin, vec3(1.0f, 0.0f, 1.0f));
     }
 
     {
         Ent *e = add_ent();
-        e->art_data.art = Art_Fish;
+        e->img = get_art(Art_Fish);
         e->pos = add3(origin, vec3(-2.0f, 0.0f, 0.0f));
     }
+
+    for (Ent *e = 0; e = ent_world_iter(e); )
+        if (e->shape == Shape_Plane)
+            e->tint_color = vec4(1.3f, 1.0f, 1.5f, 1.0f);
 }
 
 
@@ -522,9 +522,8 @@ void event(const sapp_event *ev) {
     }
 }
 
-static Vec3 eye = { 0.4f, 6.8f, 8.4f };
 void frame(void) {
-    if (!renderer.loaded) {
+    if (!rendr.loaded) {
         sfetch_dowork();
         return;
     }
@@ -535,7 +534,7 @@ void frame(void) {
     }
 
     Vec3 cam = world.cam->pos;
-    start_render(add3(cam, eye), cam, vec3_y());
+    start_render(cam);
     for (Ent *e = 0; e = ent_world_iter(e); )
         if (!has_ent_prop(e, EntProp_Hidden)) draw_ent(e);
     end_render();

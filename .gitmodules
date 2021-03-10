@@ -2,5 +2,11 @@
 	path = sokol-tools-bin
 	url = https://github.com/floooh/sokol-tools-bin/
 [submodule "twemoji"]
-	path = twemoji
+	path = client/twemoji
 	url = https://github.com/twitter/twemoji/
+[submodule "bq_websocket"]
+	path = bq_websocket
+	url = https://github.com/cedric-h/bq_websocket
+[submodule "metadesk"]
+	path = metadesk
+	url = https://github.com/Dion-Systems/metadesk

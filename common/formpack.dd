@@ -1,0 +1,15 @@
+@tagun NetToServer: {
+    AccountExists: { user: String },
+    AccountTrial: { user: String },
+    AccountRegister: { user: String, pass: String },
+    AccountLogin: { user: String, pass: String },
+}
+
+@tagun NetToClient: {
+    AccountStatus: { user: String, exists: bool },
+    AccountBadUser: { user: String, reason: String },
+    AccountBadPass: { pass: String, reason: String },
+    AccountTrialAccept: { user: String },
+    AccountLoginAccept: { user: String },
+    AccountServerError: { desc: String },
+}

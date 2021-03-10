@@ -48,14 +48,14 @@ vec4 gamma(vec4 c) {
 }
 #pragma sokol @end
 
-#pragma sokol @block uniforms
+#pragma sokol @block shadowUniforms
 uniform vs_shadow_params {
     mat4 mvp;
 };
 #pragma sokol @end
 //  Shadowmap pass shaders
 #pragma sokol @vs shadowVS
-#pragma sokol @include_block uniforms
+#pragma sokol @include_block shadowUniforms
 
 in vec4 position;
 in vec2 uv;
@@ -85,6 +85,42 @@ void main() {
 #pragma sokol @end
 
 #pragma sokol @program shadow shadowVS shadowFS
+
+#pragma sokol @block muiUniforms
+uniform mui_params {
+    mat4 mvp;
+};
+#pragma sokol @end
+#pragma sokol @vs muiVS
+#pragma sokol @include_block muiUniforms
+in vec2 position;
+in vec2 tex0;
+in vec4 color0;
+
+out vec4 color;
+out vec2 uv;
+
+void main() {
+  gl_Position = mvp * vec4(position, 0, 1);
+  color = color0;
+  uv = tex0;
+}
+#pragma sokol @end
+
+#pragma sokol @fs muiFS
+uniform sampler2D tex;
+
+in vec4 color;
+in vec2 uv;
+
+out vec4 frag_color;
+void main() {
+  float alpha = texture(tex, uv).x;
+  frag_color = vec4(1,1,1,alpha) * color;
+}
+#pragma sokol @end
+
+#pragma sokol @program mui muiVS muiFS
 
 //  Color pass shaders
 #pragma sokol @block colorUniforms

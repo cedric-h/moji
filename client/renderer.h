@@ -1,5 +1,7 @@
 #pragma warning(disable:4324)
-#include "./build/game.glsl.h"
+#include "../build/game.glsl.h"
+#include "../mui/microui.h"
+#include "../mui/mui_renderer.c"
 
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
@@ -423,6 +425,8 @@ void rendr_load(void) {
         .context = sapp_sgcontext()
     });
 
+    r_init();
+
     #define ASSET_BUF_SIZE 30000
     for (Art i = (Art) 0; i < Art_COUNT; i++) {
         const char *path = art_path(i);
@@ -598,6 +602,4 @@ void end_render(void) {
         _draw_default(&rendr.draw.cache[i]);
 
     sg_end_pass();
-
-    sg_commit();
 }

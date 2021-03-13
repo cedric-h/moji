@@ -115,9 +115,19 @@ INLINE Vec2 add2(Vec2 a, Vec2 b) {
                 a.y + b.y);
 }
 
+INLINE Vec2 add2f(Vec2 a, f32 f) {
+    return vec2(a.x + f,
+                a.y + f);
+}
+
 INLINE Vec2 sub2(Vec2 a, Vec2 b) {
     return vec2(a.x - b.x,
                 a.y - b.y);
+}
+
+INLINE Vec2 sub2f(Vec2 a, f32 f) {
+    return vec2(a.x - f,
+                a.y - f);
 }
 
 INLINE Vec2 div2(Vec2 a, Vec2 b) {

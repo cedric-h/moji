@@ -51,6 +51,8 @@ vec4 gamma(vec4 c) {
 #pragma sokol @block shadowUniforms
 uniform vs_shadow_params {
     mat4 mvp;
+    vec2 min_tex;
+    vec2 max_tex;
 };
 #pragma sokol @end
 //  Shadowmap pass shaders
@@ -65,7 +67,7 @@ out vec2 tex_coord;
 void main() {
     gl_Position = mvp * position;
     projZW = gl_Position.zw;
-    tex_coord = uv;
+    tex_coord = mix(min_tex, max_tex, uv);
 }
 #pragma sokol @end
 
@@ -115,8 +117,7 @@ in vec2 uv;
 
 out vec4 frag_color;
 void main() {
-  float alpha = texture(tex, uv).x;
-  frag_color = vec4(1,1,1,alpha) * color;
+  frag_color = texture(tex, uv) * color;
 }
 #pragma sokol @end
 
@@ -126,6 +127,8 @@ void main() {
 #pragma sokol @block colorUniforms
 uniform vs_light_params {
     mat4 model;
+    vec2 min_tex;
+    vec2 max_tex;
     mat4 mvp;
     mat4 lightMVP;
     vec4 tintColor;
@@ -153,7 +156,7 @@ void main() {
     N = (model * vec4(normal, 0.0)).xyz;
     tint = tintColor;
     base = baseColor;
-    tex_coord = uv;
+    tex_coord = mix(min_tex, max_tex, uv);
 }
 #pragma sokol @end
 

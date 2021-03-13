@@ -22,7 +22,7 @@ typedef struct {
     Mat4 mvp;
 } mui_params;
 
-void r_init(void) {
+void r_init(sg_image img) {
     sg_buffer_desc vbuf_desc = { .size = sizeof(vert_buf), .usage = SG_USAGE_STREAM };
     sg_buffer_desc vcol_desc = { .size = sizeof(color_buf), .usage = SG_USAGE_STREAM };
     sg_buffer_desc vtex_desc = { .size = sizeof(tex_buf), .usage = SG_USAGE_STREAM };
@@ -37,15 +37,6 @@ void r_init(void) {
     s_vcol = sg_make_buffer(&vcol_desc);
     s_vtex = sg_make_buffer(&vtex_desc);
     s_ibuf = sg_make_buffer(&ibuf_desc);
-
-    sg_image img = sg_make_image(&(sg_image_desc){
-        .width = ATLAS_WIDTH,
-        .height = ATLAS_HEIGHT,
-        .pixel_format = SG_PIXELFORMAT_R8,// RGBA8,
-        .min_filter = SG_FILTER_NEAREST,
-        .mag_filter = SG_FILTER_NEAREST,
-        .data.subimage[0][0] = SG_RANGE(atlas_texture)
-    });
 
     /* define the resource bindings */
     s_bind = (sg_bindings){
@@ -64,7 +55,6 @@ void r_init(void) {
         .shader = shd,
         .index_type = SG_INDEXTYPE_UINT32,
         .layout = {
-            // number of vertex buffers doesn't match number of pipeline vertex layouts
             .attrs = {
                 [ATTR_muiVS_position] = {
                     .format = SG_VERTEXFORMAT_FLOAT2,
@@ -82,15 +72,17 @@ void r_init(void) {
         },
         .colors[0].blend = {
             .enabled = true,
-            .src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-            .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            .src_factor_rgb = SG_BLENDFACTOR_ONE, 
+            .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, 
+            .src_factor_alpha = SG_BLENDFACTOR_ONE, 
+            .dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
         },
         .label = "mui-pipeline"
     });
 }
 
 
-static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
+static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color, bool mui_atlas) {
     assert(buf_idx < BUFFER_SIZE);
 
     int texvert_idx = buf_idx *  8;
@@ -100,10 +92,15 @@ static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
     buf_idx++;
 
     /* update texture buffer */
-    f32 x = src.x / (f32) ATLAS_WIDTH;
-    f32 y = src.y / (f32) ATLAS_HEIGHT;
-    f32 w = src.w / (f32) ATLAS_WIDTH;
-    f32 h = src.h / (f32) ATLAS_HEIGHT;
+    f32 x = src.x / (f32) SPRITESHEET_SIZE;
+    f32 y = src.y / (f32) SPRITESHEET_SIZE;
+    if (mui_atlas) {
+        SubImg atlas_sub = art_sub_img(Art_MuiAtlas);
+        x += atlas_sub.min.x;
+        y += atlas_sub.min.y;
+    }
+    f32 w = src.w / (f32) SPRITESHEET_SIZE;
+    f32 h = src.h / (f32) SPRITESHEET_SIZE;
     tex_buf[texvert_idx + 0] = x;
     tex_buf[texvert_idx + 1] = y;
     tex_buf[texvert_idx + 2] = x + w;
@@ -140,7 +137,7 @@ static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
 
 
 void r_draw_rect(mu_Rect rect, mu_Color color) {
-    push_quad(rect, atlas[ATLAS_WHITE], color);
+    push_quad(rect, atlas[ATLAS_WHITE], color, true);
 }
 
 
@@ -152,7 +149,7 @@ void r_draw_text(const char *text, mu_Vec2 pos, mu_Color color) {
         mu_Rect src = atlas[ATLAS_FONT + chr];
         dst.w = src.w;
         dst.h = src.h;
-        push_quad(dst, src, color);
+        push_quad(dst, src, color, true);
         dst.x += dst.w;
     }
 }
@@ -162,9 +159,15 @@ void r_draw_icon(int id, mu_Rect rect, mu_Color color) {
     mu_Rect src = atlas[id];
     int x = rect.x + (rect.w - src.w) / 2;
     int y = rect.y + (rect.h - src.h) / 2;
-    push_quad(mu_rect(x, y, src.w, src.h), src, color);
+    push_quad(mu_rect(x, y, src.w, src.h), src, color, true);
 }
 
+void r_draw_image(int id, mu_Rect rect, mu_Color color) {
+    mu_Rect src = atlas[id];
+    int x = rect.x + (rect.w - src.w) / 2;
+    int y = rect.y + (rect.h - src.h) / 2;
+    push_quad(mu_rect(x, y, src.w, src.h), src, color, false);
+}
 
 int r_get_text_width(const char *text, int len) {
     int res = 0;
@@ -258,6 +261,8 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
                 r_draw_rect(cmd->rect.rect, cmd->rect.color); break;
             case MU_COMMAND_ICON:
                 r_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
+            case MU_COMMAND_IMAGE:
+                r_draw_image(cmd->image.id, cmd->image.rect, cmd->image.color); break;
             case MU_COMMAND_CLIP: {
                 draw_fifo_queue_draw(&cmd_fifo, buf_idx);
                 draw_fifo_queue_clip(&cmd_fifo, cmd->clip.rect);

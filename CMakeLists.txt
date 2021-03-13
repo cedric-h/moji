@@ -18,7 +18,7 @@ add_library(bq_websocket STATIC bq_websocket/bq_websocket_platform.c
                                 bq_websocket/bq_websocket.h)
 
 #=== LIBRARY: microui
-add_library(microui STATIC mui/microui.c)
+add_library(microui STATIC client/mui/microui.c)
 
 #=== LIBRARY: sokol
 # add headers to the the file list because they are useful to have in IDEs
@@ -85,13 +85,13 @@ set_source_files_properties(client.glsl.h PROPERTIES
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_executable(client WIN32 client/main.c game.glsl.h formpack.h)
+    add_executable(client WIN32 client/main.c client.glsl.h formpack.h)
 
     set_target_properties(client PROPERTIES
         LINK_FLAGS /SUBSYSTEM:CONSOLE
     )
 else()
-    add_executable(client client/main.c game.glsl.h formpack.h)
+    add_executable(client client/main.c client.glsl.h formpack.h)
 endif()
 
 target_link_libraries(client sokol)

@@ -519,6 +519,21 @@ void mu_draw_icon(mu_Context *ctx, int id, mu_Rect rect, mu_Color color) {
   if (clipped) { mu_set_clip(ctx, unclipped_rect); }
 }
 
+void mu_draw_image(mu_Context *ctx, int id, mu_Rect rect, mu_Color color) {
+  mu_Command *cmd;
+  /* do clip command if the rect isn't fully contained within the cliprect */
+  int clipped = mu_check_clip(ctx, rect);
+  if (clipped == MU_CLIP_ALL ) { return; }
+  if (clipped == MU_CLIP_PART) { mu_set_clip(ctx, mu_get_clip_rect(ctx)); }
+  /* do icon command */
+  cmd = mu_push_command(ctx, MU_COMMAND_IMAGE, sizeof(mu_ImageCommand));
+  cmd->image.id = id;
+  cmd->image.rect = rect;
+  cmd->image.color = color;
+  /* reset clipping if it was set */
+  if (clipped) { mu_set_clip(ctx, unclipped_rect); }
+}
+
 
 /*============================================================================
 ** layout
@@ -729,10 +744,10 @@ void mu_label(mu_Context *ctx, const char *text) {
 }
 
 
-int mu_button_ex(mu_Context *ctx, const char *label, int icon, int opt) {
+int mu_button_ex(mu_Context *ctx, const char *label, int icon, int img, int opt) {
   int res = 0;
   mu_Id id = label ? mu_get_id(ctx, label, strlen(label))
-                   : mu_get_id(ctx, &icon, sizeof(icon));
+                   : mu_get_id(ctx, icon ? &icon : &img, sizeof(icon));
   mu_Rect r = mu_layout_next(ctx);
   mu_update_control(ctx, id, r, opt);
   /* handle click */
@@ -743,6 +758,7 @@ int mu_button_ex(mu_Context *ctx, const char *label, int icon, int opt) {
   mu_draw_control_frame(ctx, id, r, MU_COLOR_BUTTON, opt);
   if (label) { mu_draw_control_text(ctx, label, r, MU_COLOR_TEXT, opt); }
   if (icon) { mu_draw_icon(ctx, icon, r, ctx->style->colors[MU_COLOR_TEXT]); }
+  if (img) { mu_draw_image(ctx, img, r, ctx->style->colors[MU_COLOR_TEXT]); }
   return res;
 }
 

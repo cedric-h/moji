@@ -2,5 +2,8 @@
 *.swo
 build/
 pfiles/
+bq_websocket/
+client/twemoji/
+client/img/*.png
 *.rdbg
 *.cap

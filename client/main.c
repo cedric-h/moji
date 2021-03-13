@@ -59,7 +59,7 @@ struct Ent {
     /* appearance */
     Shape shape;
     Vec4 base_color, tint_color;
-    sg_image img;
+    SubImg img;
 
     /* bob animation */
     f32 bob_scale, bob_freq;
@@ -247,7 +247,9 @@ void draw_ent(Ent *e) {
 
 Ent *wall_at(Vec3 p, f32 height) {
     Ent *w = add_ent();
-    w->img = get_art(Art_Fog);
+    w->img = art_sub_img(Art_Fog);
+    w->img.min = add2f(w->img.min, 3.0f / (f32) SPRITESHEET_SIZE);
+    w->img.max = sub2f(w->img.max, 3.0f / (f32) SPRITESHEET_SIZE);
     w->shape = Shape_Cube;
     Vec4 color = vec4(0.58f, 0.51f, 0.85f, 1.0f);
     w->base_color = mul4f(color, 0.3f);
@@ -346,7 +348,7 @@ void gen_castle_ground(Vec3 origin) {
         c.shape = Shape_Circle;
         c.scale = mul3f(c.scale, 0.5f);
         c.base_color = vec4(0.125f, 0.3f, 0.195f, 1.0f);
-        c.img = EMPTY_IMAGE;
+        c.img = full_sub_img(EMPTY_IMAGE);
         draw_ent(&c);
     }
 
@@ -359,7 +361,7 @@ void gen_castle_ground(Vec3 origin) {
         for (int x = 0; x < max; x++) {
         for (int y = 0; y < max; y++) {
             l.rot.z = PI32 * randf() * 0.25f + (PI32 * (3.0f / 8.0f));
-            l.img = get_art(flat_plants[rand_u32() % LEN(flat_plants)]);
+            l.img = art_sub_img(flat_plants[rand_u32() % LEN(flat_plants)]);
 
             const f32 w = sqrtf(3.0f), h = 2.0f;
             l.pos.x = ((f32) (x * 2 + (y & 1)) / 2.0f * w) / 20.0f - 0.5f;
@@ -376,7 +378,7 @@ void gen_castle_ground(Vec3 origin) {
         Vec3 outer = mul3f(l.scale, 1.3f);
         Vec3 inner = mul3f(l.scale, 0.9f);
         for (int i = 0; i < circle; i++) {
-            l.img = get_art(flat_plants[rand_u32() % LEN(flat_plants)]);
+            l.img = art_sub_img(flat_plants[rand_u32() % LEN(flat_plants)]);
 
             f32 r = ((f32) i / (f32) circle) * TAU32;
             l.rot.z = r - PI32/2.0f;
@@ -402,7 +404,7 @@ void gen_castle_ground(Vec3 origin) {
         for (int x = -max; x <= max; x++) {
         for (int y = -max; y <= max; y++) {
             Ent m = default_ent();
-            m.img = get_art(Art_Moon);
+            m.img = art_sub_img(Art_Moon);
             m.scale = mul3f(m.scale, (1.0f / 15.0f) * 0.85f);
             m.pos = vec3f(0.0f);
             Vec4 color = vec4(0.225f, 0.035f, 0.05f, 1.0f);
@@ -446,7 +448,7 @@ void gen_castle_ground(Vec3 origin) {
                 Ent *p = add_ent();
                 p->scale = vec3f(simp);
                 p->pos = game_pos;
-                p->img = get_art(simp > 0.775f ? Art_Tanabata : Art_Herb);
+                p->img = art_sub_img(simp > 0.775f ? Art_Tanabata : Art_Herb);
                 continue;
             };
 
@@ -471,14 +473,14 @@ void gen_castle_ground(Vec3 origin) {
         }
         }
     }
-    e->img = end_offscreen();
+    e->img = full_sub_img(end_offscreen());
 }
 
 void generate_game() {
     /* cloud */
     for (int i = 0; i < 30; i++) {
         Ent *e = add_ent();
-        e->img = get_art(cloud_art[rand_u32() % LEN(cloud_art)]);
+        e->img = art_sub_img(cloud_art[rand_u32() % LEN(cloud_art)]);
         e->bob_scale = 0.2f + randf() * 0.3f;
         e->bob_freq = 2.0f + randf() * 1.0f;
         e->scale = mul3f(e->scale, 2.0f);
@@ -498,13 +500,13 @@ void generate_game() {
     
     {
         Ent *e = add_ent();
-        e->img = get_art(Art_Wizard);
+        e->img = art_sub_img(Art_Wizard);
         e->pos = add3(origin, vec3(1.0f, 0.0f, 1.0f));
     }
 
     {
         Ent *e = add_ent();
-        e->img = get_art(Art_Fish);
+        e->img = art_sub_img(Art_Fish);
         e->pos = add3(origin, vec3(-2.0f, 0.0f, 0.0f));
     }
 
@@ -821,6 +823,22 @@ void login_window(mu_Context *ctx) {
         mu_end_window(ctx);
     }
 }
+void inventory_window(mu_Context *ctx) {
+    (void) ctx;
+    /*
+    int opt = MU_OPT_AUTOSIZE | MU_OPT_NORESIZE |
+              MU_OPT_NOSCROLL | MU_OPT_NOTITLE;
+    if (mu_begin_window_ex(ctx, "Inventory Opener", mu_rect(0, 150, 0, 0), opt)) {
+        mu_layout_set_next(ctx, mu_rect(0, 0, 200, 30), 1);
+        int id = art_sub_img(Art_Wizard).id;
+        if (mu_button_img(ctx, id)) {
+            if (login.login == Login_Trial) login.login = Login_Register;
+            // window->open = 1;
+        }
+        mu_end_window(ctx);
+    }
+    */
+}
 
 void frame(void) {
     if (!rendr.loaded) {
@@ -864,6 +882,7 @@ void frame(void) {
     
     mu_begin(&game.mu_ctx);
     login_window(&game.mu_ctx);
+    inventory_window(&game.mu_ctx);
     mu_end(&game.mu_ctx);
 
     Vec3 cam = game.cam->pos;

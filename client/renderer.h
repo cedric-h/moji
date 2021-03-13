@@ -1,7 +1,26 @@
+typedef struct {
+    sg_image src;
+    Vec2 min, max;
+} SubImg;
+
+#define SPRITESHEET_SIZE 1024
+#define SPRITESHEET_TILE_SIZE 128
+#define SPRITESHEET_TILE_DIM (SPRITESHEET_SIZE / SPRITESHEET_TILE_SIZE)
+typedef enum {
+    Art_Moon, Art_RainyCloud, Art_ThunderCloud, Art_Fog, Art_Seedling, Art_Cactus,
+    Art_Herb, Art_FourLeafClover, Art_Tanabata, Art_Bag, Art_Fish, Art_Cucumber,
+    Art_Broccoli, Art_LeafyGreen, Art_Wizard, Art_Cloud, Art_Shamrock, Art_WhiteCircle,
+    Art_SunnyCloud,
+    Art_MuiAtlas,
+    Art_COUNT,
+} Art;
+const Art cloud_art[] = { Art_Cloud, Art_RainyCloud, Art_SunnyCloud, Art_ThunderCloud };
+SubImg art_sub_img(Art art);
+
 #pragma warning(disable:4324)
-#include "../build/game.glsl.h"
-#include "../mui/microui.h"
-#include "../mui/mui_renderer.c"
+#include "../build/client.glsl.h"
+#include "./mui/microui.h"
+#include "./mui/mui_renderer.c"
 
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
@@ -15,59 +34,6 @@
     #define _PRIVATE static
 #endif
 
-typedef enum {
-    Art_Wizard,
-    Art_Moon,
-    Art_Fish,
-    Art_Cloud,
-    Art_WhiteCircle,
-    Art_RainyCloud,
-    Art_SunnyCloud,
-    Art_ThunderCloud,
-    Art_Tanabata,
-    Art_Herb,
-    Art_Cucumber,
-    Art_Broccoli,
-    Art_FourLeafClover,
-    Art_Shamrock,
-    Art_LeafyGreen,
-    Art_Cactus,
-    Art_Seedling,
-    Art_Fog,
-    Art_COUNT,
-} Art;
-const Art cloud_art[] = { Art_Cloud, Art_RainyCloud, Art_SunnyCloud, Art_ThunderCloud };
-const char *art_path(Art art) {
-    /* https://emojipedia.org is a great source for finding the unicode codepoints
-       for various emojis. Make sure to lowercase the strings and remove all "U+".
-       Keeping track of them as codepoints instead of renaming the .pngs may seem
-       counterintuitive, but it should allow us later to easily pull fonts from
-       the user's operating system instead of packaging the emoji images with the
-       application, to cut down on size. */
-
-    switch (art) {
-    case (Art_Wizard):         return "twemoji/assets/72x72/1f9d9-200d-2642-fe0f.png";
-    case (Art_Fish):           return "twemoji/assets/72x72/1f41f.png";
-    case (Art_Moon):           return "twemoji/assets/72x72/1f311.png";
-    case (Art_Cloud):          return "twemoji/assets/72x72/2601.png";
-    case (Art_WhiteCircle):    return "twemoji/assets/72x72/26AA.png";
-    case (Art_RainyCloud):     return "twemoji/assets/72x72/1f327.png";
-    case (Art_SunnyCloud):     return "twemoji/assets/72x72/26C5.png";
-    case (Art_ThunderCloud):   return "twemoji/assets/72x72/1f329.png";
-    case (Art_Tanabata):       return "twemoji/assets/72x72/1f38b.png";
-    case (Art_Herb):           return "twemoji/assets/72x72/1f33f.png";
-    case (Art_Cucumber):       return "twemoji/assets/72x72/1f952.png";
-    case (Art_Broccoli):       return "twemoji/assets/72x72/1f966.png";
-    case (Art_FourLeafClover): return "twemoji/assets/72x72/1f340.png";
-    case (Art_Shamrock):       return "twemoji/assets/72x72/2618.png";
-    case (Art_LeafyGreen):     return "twemoji/assets/72x72/1f96C.png";
-    case (Art_Cactus):         return "twemoji/assets/72x72/1f335.png";
-    case (Art_Seedling):       return "twemoji/assets/72x72/1f331.png";
-    case (Art_Fog):            return "twemoji/assets/72x72/1f32B.png";
-    default:                   return NULL;
-    }
-}
-
 #define OFFSCREEN_SAMPLE_COUNT 4
 #define EMPTY_IMAGE rendr.empty_image
 typedef enum { Shape_Plane, Shape_GroundPlane, Shape_Cube, Shape_Circle } Shape;
@@ -76,7 +42,7 @@ typedef struct {
     Mat4 mat;
     Vec4 base_color, tint_color;
     Shape shape;
-    sg_image img;
+    SubImg img;
 } Draw;
 
 static struct {
@@ -91,7 +57,6 @@ static struct {
         sg_pipeline pip;
         sg_bindings bind;
     } deflt;
-    float ry;
 
     Mat4 view_proj;
     Vec3 eye;
@@ -106,10 +71,7 @@ static struct {
         bool active;
     } offscreen;
 
-    struct {
-        sg_image img;
-        bool loaded;
-    } art[Art_COUNT];
+    sg_image spritesheet;
     sg_image empty_image;
 
     struct {
@@ -119,6 +81,23 @@ static struct {
 
     bool loaded;
 } rendr;
+
+SubImg art_sub_img(Art art) {
+    Vec2 tile_pos = vec2((f32) ((int) art % SPRITESHEET_TILE_DIM),
+                         (f32) ((int) art / SPRITESHEET_TILE_DIM));
+    return (SubImg) {
+        .src = rendr.spritesheet,
+        .min = div2f(tile_pos,              SPRITESHEET_TILE_DIM),
+        .max = div2f(add2f(tile_pos, 1.0f), SPRITESHEET_TILE_DIM),
+    };
+}
+SubImg full_sub_img(sg_image img) {
+    return (SubImg) {
+        .src = img,
+        .min = vec2f(0.0f),
+        .max = vec2f(1.0f),
+    };
+}
 
 typedef struct {
     Vec3 pos;
@@ -148,6 +127,7 @@ _PRIVATE void _smooth_normals(u16 *indices, int index_count, Vertex *verts) {
 
 #define CIRCLE_RES 75
 _PRIVATE void _rendr_init() {
+    r_init(rendr.spritesheet);
     rendr.loaded = true;
 
     /* default pass action: clear to blue-ish */
@@ -370,6 +350,21 @@ _PRIVATE void _rendr_init() {
     });
 }
 
+_PRIVATE void _insert_mui_atlas(u8 *img, int w) {
+    int tile_x = Art_MuiAtlas % SPRITESHEET_TILE_DIM,
+        tile_y = Art_MuiAtlas / SPRITESHEET_TILE_DIM;
+    for (int y = 0; y < 128; y++) {
+        int img_y = ((tile_y * 128) + y) * 4 * w;
+        for (int x = 0; x < 128; x++) {
+            int img_x = ((tile_x * 128) + x) * 4;
+            img[img_y + img_x + 0] = 255;
+            img[img_y + img_x + 1] = 255;
+            img[img_y + img_x + 2] = 255;
+            img[img_y + img_x + 3] = atlas_texture[y * 128 + x];
+        }
+    }
+}
+
 _PRIVATE void _load_image(const sfetch_response_t* res) {
     if (res->failed) {
         puts("resource loading failed");
@@ -377,12 +372,11 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
         return;
     }
 
-    Art art = (Art) res->lane;
-
-    int x = 72, y = 72, n = 4;
+    int x = 1024, y = 1024, n = 4;
     u8 *img = stbi_load_from_memory(res->buffer_ptr, res->fetched_size, &x, &y, &n, 4);
     if (img == NULL) printf("image load failure :(");
     u32 img_size = x * y;
+    _insert_mui_atlas(img, x);
 
     /* premultiply the alpha */
     for (u32 i = 0; i < img_size * n; i += 4) {
@@ -393,14 +387,14 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
     }
 
     /* NOTE: https://github.com/floooh/sokol/issues/102 */
-    rendr.art[art].img = sg_make_image_with_mipmaps(&(sg_image_desc) {
+    rendr.spritesheet = sg_make_image_with_mipmaps(&(sg_image_desc) {
         .width = x,
         .height = y,
-        .num_mipmaps = 7,
+        .num_mipmaps = 1 + (int) floor(log2((f32) max(x, y))),
         .max_anisotropy = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,
-        .mag_filter = SG_FILTER_LINEAR,
+        .min_filter = SG_FILTER_LINEAR_MIPMAP_NEAREST,
+        .mag_filter = SG_FILTER_NEAREST,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .data.subimage[0][0] = (sg_range) {
@@ -412,11 +406,6 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
     stbi_image_free(img);
     free(res->buffer_ptr);
 
-    rendr.art[art].loaded = true;
-    /* initializes the renderer if all the assets are loaded */
-    for (Art i = (Art) 0; i < Art_COUNT; i++)
-        if (!rendr.art[i].loaded) return;
-    
     _rendr_init();
 }
 
@@ -425,23 +414,14 @@ void rendr_load(void) {
         .context = sapp_sgcontext()
     });
 
-    r_init();
-
-    #define ASSET_BUF_SIZE 30000
-    for (Art i = (Art) 0; i < Art_COUNT; i++) {
-        const char *path = art_path(i);
-        if (path) sfetch_send(&(sfetch_request_t) {
-            .path = art_path(i),
-            .callback = _load_image,
-            .buffer_ptr = malloc(ASSET_BUF_SIZE),
-            .buffer_size = ASSET_BUF_SIZE,
-        });
-        else puts("no known path for Art");
-    }
-}
-
-sg_image get_art(Art art) {
-    return rendr.art[art].img;
+    // assumes four channels of one byte color
+    #define ASSET_BUF_SIZE 4 * 1024 * 1024
+    sfetch_send(&(sfetch_request_t) {
+        .path = "spritesheet.png",
+        .callback = _load_image,
+        .buffer_ptr = malloc(ASSET_BUF_SIZE),
+        .buffer_size = ASSET_BUF_SIZE,
+    });
 }
 
 void start_offscreen(int width, int height, char *label) {
@@ -454,8 +434,8 @@ void start_offscreen(int width, int height, char *label) {
         .height = height,
         .max_anisotropy = 8,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,
-        .mag_filter = SG_FILTER_LINEAR,
+        .min_filter = SG_FILTER_NEAREST,
+        .mag_filter = SG_FILTER_NEAREST,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .label = label,
@@ -489,12 +469,14 @@ sg_image end_offscreen(void) {
 }
 
 _PRIVATE void _draw_default(Draw *d) {
-    rendr.deflt.bind.fs_images[SLOT_art] = d->img;
+    rendr.deflt.bind.fs_images[SLOT_art] = d->img.src;
     sg_apply_bindings(&rendr.deflt.bind);
 
     vs_light_params_t vs_light_params = {
         .lightMVP = mul4x4(rendr.light.mvp, d->mat),
         .model = d->mat,
+        .min_tex = d->img.min,
+        .max_tex = d->img.max,
         .mvp = mul4x4(rendr.view_proj, d->mat),
         .tintColor = d->tint_color,
         .baseColor = d->base_color,
@@ -575,11 +557,13 @@ void end_render(void) {
     for (int i = 0; i < rendr.draw.count; i++) {
         Draw *d = &rendr.draw.cache[i];
 
-        rendr.shadow.bind.fs_images[SLOT_tex] = d->img;
+        rendr.shadow.bind.fs_images[SLOT_tex] = d->img.src;
         sg_apply_bindings(&rendr.shadow.bind);
 
         vs_shadow_params_t vs_shadow_params = {
-            .mvp = mul4x4(rendr.light.mvp, d->mat)
+            .mvp = mul4x4(rendr.light.mvp, d->mat),
+            .min_tex = d->img.min,
+            .max_tex = d->img.max,
         };
         sg_apply_uniforms(SG_SHADERSTAGE_VS,
                           SLOT_vs_shadow_params,

@@ -115,8 +115,7 @@ in vec2 uv;
 
 out vec4 frag_color;
 void main() {
-  float alpha = texture(tex, uv).x;
-  frag_color = vec4(1,1,1,alpha) * color;
+  frag_color = texture(tex, uv) * color;
 }
 #pragma sokol @end
 

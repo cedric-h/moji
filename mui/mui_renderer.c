@@ -11,6 +11,7 @@ static int buf_idx;
 
 static sg_pipeline s_pip;
 static sg_bindings s_bind;
+static sg_image s_img;
 
 static sg_buffer s_vbuf;
 static sg_buffer s_vcol;
@@ -38,13 +39,19 @@ void r_init(void) {
     s_vtex = sg_make_buffer(&vtex_desc);
     s_ibuf = sg_make_buffer(&ibuf_desc);
 
-    sg_image img = sg_make_image(&(sg_image_desc){
+    u8 img[ATLAS_WIDTH * ATLAS_HEIGHT * 4];
+    int s = 128;
+    for (int y = 0; y < s; y++)
+        for (int x = 0; x < s; x++)
+            for (int i = 0; i < 4; i++)
+                img[(y * 4 * s) + (x * 4) + i] = atlas_texture[y * s + x];
+    s_img = sg_make_image(&(sg_image_desc){
         .width = ATLAS_WIDTH,
         .height = ATLAS_HEIGHT,
-        .pixel_format = SG_PIXELFORMAT_R8,// RGBA8,
+        .pixel_format = SG_PIXELFORMAT_RGBA8,
         .min_filter = SG_FILTER_NEAREST,
         .mag_filter = SG_FILTER_NEAREST,
-        .data.subimage[0][0] = SG_RANGE(atlas_texture)
+        .data.subimage[0][0] = SG_RANGE(img)
     });
 
     /* define the resource bindings */
@@ -52,7 +59,7 @@ void r_init(void) {
         .vertex_buffers[0] = s_vbuf,
         .vertex_buffers[1] = s_vtex,
         .vertex_buffers[2] = s_vcol,
-        .fs_images[0] = img,
+        .fs_images[0] = s_img,
         .index_buffer = s_ibuf
     };
 
@@ -80,10 +87,12 @@ void r_init(void) {
                 }
             }
         },
-        .colors[0].blend = {
+        .colors[0].blend = (sg_blend_state) {
             .enabled = true,
-            .src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-            .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            .src_factor_rgb = SG_BLENDFACTOR_ONE, 
+            .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, 
+            .src_factor_alpha = SG_BLENDFACTOR_ONE, 
+            .dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
         },
         .label = "mui-pipeline"
     });
@@ -183,7 +192,8 @@ int r_get_text_height(void) {
 
 typedef enum {
     CMD_DRAW,
-    CMD_CLIP
+    CMD_IMAGE,
+    CMD_CLIP,
 } cmd_type;
 
 #define MAX_CMDS 1024
@@ -196,6 +206,7 @@ typedef struct {
             int start_buf_idx;
             int length;
         } draw;
+        sg_image image;
     };
 } draw_cmd;
 
@@ -230,6 +241,14 @@ void draw_fifo_queue_clip(draw_fifo* self, mu_Rect r) {
     };
 }
 
+void draw_fifo_queue_image(draw_fifo* self, sg_image image) {
+    assert(self->cmd_idx < MAX_CMDS);
+    self->cmds[self->cmd_idx++] = (draw_cmd){
+        .type = CMD_IMAGE,
+        .image = image 
+    };
+}
+
 void r_draw_commands(mu_Context* ctx, int width, int height) {
     mui_params vs_params;
 
@@ -256,8 +275,23 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
                 r_draw_text(cmd->text.str, cmd->text.pos, cmd->text.color); break;
             case MU_COMMAND_RECT:
                 r_draw_rect(cmd->rect.rect, cmd->rect.color); break;
-            case MU_COMMAND_ICON:
-                r_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
+            case MU_COMMAND_ICON:;
+                int id = cmd->icon.id;
+                mu_Rect rect = cmd->icon.rect;
+                if (id > 0) {
+                    r_draw_icon(id, rect, cmd->icon.color);
+                } else {
+                    int x = rect.x + (rect.w - 72) / 2;
+                    int y = rect.y + (rect.h - 72) / 2;
+                    draw_fifo_queue_draw(&cmd_fifo, buf_idx);
+                    draw_fifo_queue_image(&cmd_fifo, (sg_image) { .id = -id });
+                    push_quad(mu_rect(x, y, 72, 72),
+                              mu_rect(0, 0, ATLAS_WIDTH, ATLAS_HEIGHT),
+                              cmd->icon.color);
+                    draw_fifo_queue_draw(&cmd_fifo, buf_idx);
+                    draw_fifo_queue_image(&cmd_fifo, s_img);
+                }
+                break;
             case MU_COMMAND_CLIP: {
                 draw_fifo_queue_draw(&cmd_fifo, buf_idx);
                 draw_fifo_queue_clip(&cmd_fifo, cmd->clip.rect);
@@ -279,6 +313,11 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
                 if (c->draw.length != 0) {
                     sg_draw(c->draw.start_buf_idx*6, c->draw.length*6, 1);
                 }
+                break;
+            }
+            case CMD_IMAGE: {
+                s_bind.fs_images[0] = c->image;
+                sg_apply_bindings(&s_bind);
                 break;
             }
             case CMD_CLIP: {

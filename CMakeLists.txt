@@ -85,13 +85,13 @@ set_source_files_properties(client.glsl.h PROPERTIES
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_executable(client WIN32 client/main.c game.glsl.h formpack.h)
+    add_executable(client WIN32 client/main.c client.glsl.h formpack.h)
 
     set_target_properties(client PROPERTIES
         LINK_FLAGS /SUBSYSTEM:CONSOLE
     )
 else()
-    add_executable(client client/main.c game.glsl.h formpack.h)
+    add_executable(client client/main.c client.glsl.h formpack.h)
 endif()
 
 target_link_libraries(client sokol)

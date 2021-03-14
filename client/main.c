@@ -728,7 +728,8 @@ void login_window(mu_Context *ctx) {
                   MU_OPT_NOSCROLL | MU_OPT_NOTITLE;
         if (mu_begin_window_ex(ctx, "Trial", mu_rect(0, 100, 0, 0), opt)) {
             mu_layout_set_next(ctx, mu_rect(0, 0, 200, 30), 1);
-            if (mu_button(ctx, "Finish signing up to save progress")) {
+            //if (mu_button(ctx, "Finish signing up to save progress")) {
+            if (mu_button_ex(ctx, NULL, -(int) get_art(Art_Bag).id, MU_OPT_ALIGNCENTER)) {
                 if (login.login == Login_Trial) login.login = Login_Register;
                 window->open = 1;
             }

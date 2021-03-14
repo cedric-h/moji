@@ -1,5 +1,5 @@
 #pragma warning(disable:4324)
-#include "../build/game.glsl.h"
+#include "../build/client.glsl.h"
 #include "../mui/microui.h"
 #include "../mui/mui_renderer.c"
 
@@ -17,6 +17,7 @@
 
 typedef enum {
     Art_Wizard,
+    Art_Bag,
     Art_Moon,
     Art_Fish,
     Art_Cloud,
@@ -46,24 +47,25 @@ const char *art_path(Art art) {
        application, to cut down on size. */
 
     switch (art) {
-    case (Art_Wizard):         return "twemoji/assets/72x72/1f9d9-200d-2642-fe0f.png";
-    case (Art_Fish):           return "twemoji/assets/72x72/1f41f.png";
-    case (Art_Moon):           return "twemoji/assets/72x72/1f311.png";
-    case (Art_Cloud):          return "twemoji/assets/72x72/2601.png";
-    case (Art_WhiteCircle):    return "twemoji/assets/72x72/26AA.png";
-    case (Art_RainyCloud):     return "twemoji/assets/72x72/1f327.png";
-    case (Art_SunnyCloud):     return "twemoji/assets/72x72/26C5.png";
-    case (Art_ThunderCloud):   return "twemoji/assets/72x72/1f329.png";
-    case (Art_Tanabata):       return "twemoji/assets/72x72/1f38b.png";
-    case (Art_Herb):           return "twemoji/assets/72x72/1f33f.png";
-    case (Art_Cucumber):       return "twemoji/assets/72x72/1f952.png";
-    case (Art_Broccoli):       return "twemoji/assets/72x72/1f966.png";
-    case (Art_FourLeafClover): return "twemoji/assets/72x72/1f340.png";
-    case (Art_Shamrock):       return "twemoji/assets/72x72/2618.png";
-    case (Art_LeafyGreen):     return "twemoji/assets/72x72/1f96C.png";
-    case (Art_Cactus):         return "twemoji/assets/72x72/1f335.png";
-    case (Art_Seedling):       return "twemoji/assets/72x72/1f331.png";
-    case (Art_Fog):            return "twemoji/assets/72x72/1f32B.png";
+    case (Art_Wizard):         return "img/1f9d9-200d-2642-fe0f.png";
+    case (Art_Bag):            return "img/1f392.png";
+    case (Art_Fish):           return "img/1f41f.png";
+    case (Art_Moon):           return "img/1f311.png";
+    case (Art_Cloud):          return "img/2601.png";
+    case (Art_WhiteCircle):    return "img/26AA.png";
+    case (Art_RainyCloud):     return "img/1f327.png";
+    case (Art_SunnyCloud):     return "img/26C5.png";
+    case (Art_ThunderCloud):   return "img/1f329.png";
+    case (Art_Tanabata):       return "img/1f38b.png";
+    case (Art_Herb):           return "img/1f33f.png";
+    case (Art_Cucumber):       return "img/1f952.png";
+    case (Art_Broccoli):       return "img/1f966.png";
+    case (Art_FourLeafClover): return "img/1f340.png";
+    case (Art_Shamrock):       return "img/2618.png";
+    case (Art_LeafyGreen):     return "img/1f96C.png";
+    case (Art_Cactus):         return "img/1f335.png";
+    case (Art_Seedling):       return "img/1f331.png";
+    case (Art_Fog):            return "img/1f32B.png";
     default:                   return NULL;
     }
 }
@@ -396,7 +398,7 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
     rendr.art[art].img = sg_make_image_with_mipmaps(&(sg_image_desc) {
         .width = x,
         .height = y,
-        .num_mipmaps = 7,
+        .num_mipmaps = 1 + (int) floor(log2((f32) max(x, y))),
         .max_anisotropy = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,

@@ -335,7 +335,7 @@ Ent *wall_test(Vec3 p) {
 
 void gen_castle_ground(Vec3 origin) {
     Ent *e = add_ent();
-    // e->pos.y = 0.01f;
+    // e->pos.y = 0.1f;
     e->shape = Shape_GroundPlane;
     e->pos = origin;
     e->scale = vec3f(15.0f);
@@ -448,6 +448,7 @@ void gen_castle_ground(Vec3 origin) {
                 Ent *p = add_ent();
                 p->scale = vec3f(simp);
                 p->pos = game_pos;
+                p->pos.y -= simp * 0.04f;
                 p->img = art_sub_img(simp > 0.775f ? Art_Tanabata : Art_Herb);
                 continue;
             };
@@ -825,19 +826,13 @@ void login_window(mu_Context *ctx) {
 }
 void inventory_window(mu_Context *ctx) {
     (void) ctx;
-    /*
-    int opt = MU_OPT_AUTOSIZE | MU_OPT_NORESIZE |
-              MU_OPT_NOSCROLL | MU_OPT_NOTITLE;
+    int opt = MU_OPT_AUTOSIZE | MU_OPT_NOFRAME | MU_OPT_NOTITLE;
     if (mu_begin_window_ex(ctx, "Inventory Opener", mu_rect(0, 150, 0, 0), opt)) {
-        mu_layout_set_next(ctx, mu_rect(0, 0, 200, 30), 1);
-        int id = art_sub_img(Art_Wizard).id;
-        if (mu_button_img(ctx, id)) {
-            if (login.login == Login_Trial) login.login = Login_Register;
-            // window->open = 1;
+        mu_layout_set_next(ctx, mu_rect(0, 0, 72, 72), 1);
+        if (mu_button_ex(ctx, 0, 0, Art_Bag, MU_OPT_NOFRAME)) {
         }
         mu_end_window(ctx);
     }
-    */
 }
 
 void frame(void) {
@@ -927,11 +922,11 @@ sapp_desc sokol_main(int argc, char *argv[]) {
         .frame_cb = frame,
         .cleanup_cb = cleanup,
         .event_cb = event,
-        .high_dpi = true,
+        // .high_dpi = true,
         .width = 1280,
         .height = 720,
         .sample_count = 8,
-        .gl_force_gles2 = true,
+        // .gl_force_gles2 = true,
         .window_title = "emojia",
     };
 }

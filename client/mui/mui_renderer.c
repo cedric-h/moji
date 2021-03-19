@@ -96,8 +96,9 @@ static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color, bool mui_atlas) 
     f32 y = src.y / (f32) SPRITESHEET_SIZE;
     if (mui_atlas) {
         SubImg atlas_sub = art_sub_img(Art_MuiAtlas);
-        x += atlas_sub.min.x;
-        y += atlas_sub.min.y;
+        f32 offset = 1.0f / SPRITESHEET_SIZE;
+        x += atlas_sub.min.x - offset;
+        y += atlas_sub.min.y - offset;
     }
     f32 w = src.w / (f32) SPRITESHEET_SIZE;
     f32 h = src.h / (f32) SPRITESHEET_SIZE;
@@ -162,11 +163,14 @@ void r_draw_icon(int id, mu_Rect rect, mu_Color color) {
     push_quad(mu_rect(x, y, src.w, src.h), src, color, true);
 }
 
-void r_draw_image(int id, mu_Rect rect, mu_Color color) {
-    mu_Rect src = atlas[id];
-    int x = rect.x + (rect.w - src.w) / 2;
-    int y = rect.y + (rect.h - src.h) / 2;
-    push_quad(mu_rect(x, y, src.w, src.h), src, color, false);
+void r_draw_art(Art art, mu_Rect rect, mu_Color color) {
+    SubImg sub = art_sub_img(art);
+    f32 scale = SPRITESHEET_SIZE;
+    mu_Rect src = mu_rect((int) (scale * sub.min.x),
+                          (int) (scale * sub.min.y),
+                          (int) (scale * (sub.max.x - sub.min.x)),
+                          (int) (scale * (sub.max.y - sub.min.y)));
+    push_quad(rect, src, color, false);
 }
 
 int r_get_text_width(const char *text, int len) {
@@ -261,8 +265,8 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
                 r_draw_rect(cmd->rect.rect, cmd->rect.color); break;
             case MU_COMMAND_ICON:
                 r_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
-            case MU_COMMAND_IMAGE:
-                r_draw_image(cmd->image.id, cmd->image.rect, cmd->image.color); break;
+            case MU_COMMAND_ART:
+                r_draw_art(cmd->art.art, cmd->art.rect, cmd->art.color); break;
             case MU_COMMAND_CLIP: {
                 draw_fifo_queue_draw(&cmd_fifo, buf_idx);
                 draw_fifo_queue_clip(&cmd_fifo, cmd->clip.rect);

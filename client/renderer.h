@@ -85,10 +85,11 @@ static struct {
 SubImg art_sub_img(Art art) {
     Vec2 tile_pos = vec2((f32) ((int) art % SPRITESHEET_TILE_DIM),
                          (f32) ((int) art / SPRITESHEET_TILE_DIM));
+    f32 offset = 1.0f / SPRITESHEET_SIZE;
     return (SubImg) {
         .src = rendr.spritesheet,
-        .min = div2f(tile_pos,              SPRITESHEET_TILE_DIM),
-        .max = div2f(add2f(tile_pos, 1.0f), SPRITESHEET_TILE_DIM),
+        .min = add2f(div2f(tile_pos,              SPRITESHEET_TILE_DIM), offset),
+        .max = sub2f(div2f(add2f(tile_pos, 1.0f), SPRITESHEET_TILE_DIM), offset),
     };
 }
 SubImg full_sub_img(sg_image img) {
@@ -393,7 +394,7 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
         .num_mipmaps = 1 + (int) floor(log2((f32) max(x, y))),
         .max_anisotropy = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .min_filter = SG_FILTER_LINEAR_MIPMAP_NEAREST,
+        .min_filter = SG_FILTER_NEAREST_MIPMAP_NEAREST,
         .mag_filter = SG_FILTER_NEAREST,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,

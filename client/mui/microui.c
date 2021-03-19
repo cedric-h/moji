@@ -64,6 +64,9 @@ static mu_Style default_style = {
     { 75,  75,  75,  255 }, /* MU_COLOR_BUTTON */
     { 95,  95,  95,  255 }, /* MU_COLOR_BUTTONHOVER */
     { 115, 115, 115, 255 }, /* MU_COLOR_BUTTONFOCUS */
+    { 205, 205, 205, 255 }, /* MU_COLOR_BUTTONART */
+    { 225, 225, 225, 255 }, /* MU_COLOR_BUTTONARTHOVER */
+    { 255, 255, 255, 255 }, /* MU_COLOR_BUTTONARTFOCUS */
     { 30,  30,  30,  255 }, /* MU_COLOR_BASE */
     { 35,  35,  35,  255 }, /* MU_COLOR_BASEHOVER */
     { 40,  40,  40,  255 }, /* MU_COLOR_BASEFOCUS */
@@ -519,17 +522,17 @@ void mu_draw_icon(mu_Context *ctx, int id, mu_Rect rect, mu_Color color) {
   if (clipped) { mu_set_clip(ctx, unclipped_rect); }
 }
 
-void mu_draw_image(mu_Context *ctx, int id, mu_Rect rect, mu_Color color) {
+void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color) {
   mu_Command *cmd;
   /* do clip command if the rect isn't fully contained within the cliprect */
   int clipped = mu_check_clip(ctx, rect);
   if (clipped == MU_CLIP_ALL ) { return; }
   if (clipped == MU_CLIP_PART) { mu_set_clip(ctx, mu_get_clip_rect(ctx)); }
   /* do icon command */
-  cmd = mu_push_command(ctx, MU_COMMAND_IMAGE, sizeof(mu_ImageCommand));
-  cmd->image.id = id;
-  cmd->image.rect = rect;
-  cmd->image.color = color;
+  cmd = mu_push_command(ctx, MU_COMMAND_ART, sizeof(mu_ArtCommand));
+  cmd->art.art = art;
+  cmd->art.rect = rect;
+  cmd->art.color = color;
   /* reset clipping if it was set */
   if (clipped) { mu_set_clip(ctx, unclipped_rect); }
 }
@@ -744,10 +747,10 @@ void mu_label(mu_Context *ctx, const char *text) {
 }
 
 
-int mu_button_ex(mu_Context *ctx, const char *label, int icon, int img, int opt) {
+int mu_button_ex(mu_Context *ctx, const char *label, int icon, int art, int opt) {
   int res = 0;
   mu_Id id = label ? mu_get_id(ctx, label, strlen(label))
-                   : mu_get_id(ctx, icon ? &icon : &img, sizeof(icon));
+                   : mu_get_id(ctx, icon ? &icon : &art, sizeof(icon));
   mu_Rect r = mu_layout_next(ctx);
   mu_update_control(ctx, id, r, opt);
   /* handle click */
@@ -758,7 +761,10 @@ int mu_button_ex(mu_Context *ctx, const char *label, int icon, int img, int opt)
   mu_draw_control_frame(ctx, id, r, MU_COLOR_BUTTON, opt);
   if (label) { mu_draw_control_text(ctx, label, r, MU_COLOR_TEXT, opt); }
   if (icon) { mu_draw_icon(ctx, icon, r, ctx->style->colors[MU_COLOR_TEXT]); }
-  if (img) { mu_draw_image(ctx, img, r, ctx->style->colors[MU_COLOR_TEXT]); }
+  int button_art_color = MU_COLOR_BUTTONART;
+  button_art_color += (ctx->focus == id) ? 2 : (ctx->hover == id) ? 1 : 0;
+  if (art) { mu_draw_art(ctx, art, r, ctx->style->colors[button_art_color]); }
+
   return res;
 }
 

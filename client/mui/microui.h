@@ -40,7 +40,7 @@ enum {
   MU_COMMAND_RECT,
   MU_COMMAND_TEXT,
   MU_COMMAND_ICON,
-  MU_COMMAND_IMAGE,
+  MU_COMMAND_ART,
   MU_COMMAND_MAX
 };
 
@@ -54,6 +54,9 @@ enum {
   MU_COLOR_BUTTON,
   MU_COLOR_BUTTONHOVER,
   MU_COLOR_BUTTONFOCUS,
+  MU_COLOR_BUTTONART,
+  MU_COLOR_BUTTONARTHOVER,
+  MU_COLOR_BUTTONARTFOCUS,
   MU_COLOR_BASE,
   MU_COLOR_BASEHOVER,
   MU_COLOR_BASEFOCUS,
@@ -123,7 +126,7 @@ typedef struct { mu_BaseCommand base; mu_Rect rect; } mu_ClipCommand;
 typedef struct { mu_BaseCommand base; mu_Rect rect; mu_Color color; } mu_RectCommand;
 typedef struct { mu_BaseCommand base; mu_Font font; mu_Vec2 pos; mu_Color color; char str[1]; } mu_TextCommand;
 typedef struct { mu_BaseCommand base; mu_Rect rect; int id; mu_Color color; } mu_IconCommand;
-typedef struct { mu_BaseCommand base; mu_Rect rect; int id; mu_Color color; } mu_ImageCommand;
+typedef struct { mu_BaseCommand base; mu_Rect rect; int art; mu_Color color; } mu_ArtCommand;
 
 typedef union {
   int type;
@@ -133,7 +136,7 @@ typedef union {
   mu_RectCommand rect;
   mu_TextCommand text;
   mu_IconCommand icon;
-  mu_ImageCommand image;
+  mu_ArtCommand  art;
 } mu_Command;
 
 typedef struct {
@@ -254,7 +257,7 @@ void mu_draw_rect(mu_Context *ctx, mu_Rect rect, mu_Color color);
 void mu_draw_box(mu_Context *ctx, mu_Rect rect, mu_Color color);
 void mu_draw_text(mu_Context *ctx, mu_Font font, const char *str, int len, mu_Vec2 pos, mu_Color color);
 void mu_draw_icon(mu_Context *ctx, int id, mu_Rect rect, mu_Color color);
-void mu_draw_image(mu_Context *ctx, int id, mu_Rect rect, mu_Color color);
+void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color);
 
 void mu_layout_row(mu_Context *ctx, int items, const int *widths, int height);
 void mu_layout_width(mu_Context *ctx, int width);
@@ -270,7 +273,7 @@ int mu_mouse_over(mu_Context *ctx, mu_Rect rect);
 void mu_update_control(mu_Context *ctx, mu_Id id, mu_Rect rect, int opt);
 
 #define mu_button(ctx, label)             mu_button_ex(ctx, label, 0, 0, MU_OPT_ALIGNCENTER)
-#define mu_button_img(ctx, img)           mu_button_ex(ctx, 0, 0, img, MU_OPT_ALIGNCENTER)
+#define mu_button_art(ctx, art)           mu_button_ex(ctx, 0, 0, art, MU_OPT_ALIGNCENTER)
 #define mu_textbox(ctx, buf, bufsz)       mu_textbox_ex(ctx, buf, bufsz, 0)
 #define mu_slider(ctx, value, lo, hi)     mu_slider_ex(ctx, value, lo, hi, 0, MU_SLIDER_FMT, MU_OPT_ALIGNCENTER)
 #define mu_number(ctx, value, step)       mu_number_ex(ctx, value, step, MU_SLIDER_FMT, MU_OPT_ALIGNCENTER)
@@ -281,7 +284,7 @@ void mu_update_control(mu_Context *ctx, mu_Id id, mu_Rect rect, int opt);
 
 void mu_text(mu_Context *ctx, const char *text);
 void mu_label(mu_Context *ctx, const char *text);
-int mu_button_ex(mu_Context *ctx, const char *label, int icon, int img, int opt);
+int mu_button_ex(mu_Context *ctx, const char *label, int icon, int art, int opt);
 int mu_checkbox(mu_Context *ctx, const char *label, int *state);
 int mu_textbox_raw(mu_Context *ctx, char *buf, int bufsz, mu_Id id, mu_Rect r, int opt);
 int mu_textbox_ex(mu_Context *ctx, char *buf, int bufsz, int opt);

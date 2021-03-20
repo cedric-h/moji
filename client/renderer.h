@@ -17,7 +17,6 @@ typedef enum {
 const Art cloud_art[] = { Art_Cloud, Art_RainyCloud, Art_SunnyCloud, Art_ThunderCloud };
 SubImg art_sub_img(Art art);
 
-#pragma warning(disable:4324)
 #include "../build/client.glsl.h"
 #include "./mui/microui.h"
 #include "./mui/mui_renderer.c"
@@ -573,6 +572,7 @@ void end_render(void) {
         case Shape_Cube:;  sg_draw( 0, 36, 1); break;
         case Shape_Plane:; sg_draw(36, 12, 1); break;
         case Shape_GroundPlane:;               break;
+        case Shape_Circle:;                    break;
         }
     }
     sg_end_pass();

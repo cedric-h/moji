@@ -46,52 +46,47 @@ else()
 endif()
 target_include_directories(sokol INTERFACE sokol)
 
-add_executable(formpack_gen WIN32 common/formpack_gen.c)
-set_target_properties(formpack_gen PROPERTIES
-    LINK_FLAGS /SUBSYSTEM:CONSOLE
+if (CMAKE_SYSTEM_NAME STREQUAL Windows)
+    set(RUN_FORMPACK_GEN_CMD "../formpack/build/gen.exe")
+else()
+    set(RUN_FORMPACK_GEN_CMD "../formpack/build/gen")
+endif()
+add_custom_command(OUTPUT ./formpack/build/formpack.h
+    COMMAND cmake --build ../formpack/build/ && ${RUN_FORMPACK_GEN_CMD}
+    DEPENDS ./formpack/formpack.dd
+    DEPENDS ./formpack/gen.c
 )
-
-add_custom_command(OUTPUT formpack.h
-    COMMAND ./Debug/formpack_gen.exe
-    DEPENDS ./common/formpack.dd
-    DEPENDS ./common/formpack_gen.c
-)
-set_source_files_properties(formpack.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(./formpack/build/formpack.h PROPERTIES GENERATED TRUE)
 
 #=== EXECUTABLE: client
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_custom_command(OUTPUT client.glsl.h
-        COMMAND ../sokol-tools-bin/bin/win32/sokol-shdc.exe --input ../client/client.glsl --output ./client.glsl.h --slang hlsl5
-        DEPENDS client/client.glsl
-    )
+    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/win32/sokol-shdc.exe --input ../client/client.glsl --output ./client.glsl.h --slang hlsl5)
 else()
     if (CMAKE_SYSTEM_NAME STREQUAL Linux)
-        add_custom_command(OUTPUT client.glsl.h
-            COMMAND ../sokol-tools-bin/bin/linux/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang glsl330
-            DEPENDS client/client.glsl
-        )
+        set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/linux/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang glsl330)
 else()
     if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
-        add_custom_command(OUTPUT client.glsl.h
-            COMMAND ../sokol-tools-bin/bin/osx/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang metal_macos
-            DEPENDS client/client.glsl
-        )
+        set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/osx/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang metal_macos)
     endif()
 endif()
 endif()
+add_custom_command(OUTPUT client.glsl.h
+    COMMAND ${COMPILE_SHADER_CMD}
+    DEPENDS client/client.glsl
+)
 set_source_files_properties(client.glsl.h PROPERTIES
     GENERATED TRUE
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_executable(client WIN32 client/main.c client.glsl.h formpack.h)
+    add_executable(client WIN32 client/main.c client.glsl.h ./formpack/build/formpack.h)
 
     set_target_properties(client PROPERTIES
         LINK_FLAGS /SUBSYSTEM:CONSOLE
     )
 else()
-    add_executable(client client/main.c client.glsl.h formpack.h)
+    add_executable(client client/main.c client.glsl.h ./formpack/build/formpack.h)
 endif()
 
 target_link_libraries(client sokol)
@@ -102,14 +97,19 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options(client PUBLIC -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
 endif()
 
-add_executable(server server/main.c formpack.h)
+add_executable(server server/main.c ./formpack/build/formpack.h)
+if (CMAKE_SYSTEM_NAME STREQUAL Linux)
+    target_link_libraries(server m)
+endif()
 target_link_libraries(server bq_websocket)
 
 foreach (targ client server)
     if(MSVC)
       target_compile_options(${targ} PRIVATE /W4 /WX)
     else()
-      target_compile_options(${targ} PRIVATE -Wall -Wextra -pedantic -Werror)
+      target_compile_options(${targ} PRIVATE -Wall -Wextra -Werror
+                                             -Wno-missing-braces
+                                             -Wno-missing-field-initializers)
     endif()
 
     # explicitly strip dead code

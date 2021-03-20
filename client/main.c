@@ -17,7 +17,7 @@
 
 #ifdef TEST_SERV
 #define EMBED_SERV
-#include <process.h>
+#include <pthread.h>
 #include "../server/main.c"
 #endif
 
@@ -169,7 +169,6 @@ static struct {
 
     mu_Context mu_ctx;
 
-    bqws_pt_noblock_connector *connector;
     bqws_socket *ws;
     struct { bqws_msg *msg; NetToClient ntc; } netbuf[NETBUF_SIZE];
 } game;
@@ -262,13 +261,13 @@ Ent *wall_at(Vec3 p, f32 height) {
 }
 
 static int text_width(mu_Font font, const char *text, int len) {
-    font;
+    (void) font;
     if (len == -1) { len = (int) strlen(text); }
     return r_get_text_width(text, len);
 }
 
 static int text_height(mu_Font font) {
-    font;
+    (void) font;
     return r_get_text_height();
 }
 
@@ -288,9 +287,7 @@ void init(void) {
     game.mu_ctx.text_height = text_height;
 
     bqws_pt_init(NULL);
-    puts("connecting");
-    game.connector = bqws_pt_connect_noblock("ws://localhost:6666", NULL, NULL, NULL);
-    puts("connect done");
+    game.ws = bqws_pt_connect("ws://localhost:6666", NULL, NULL, NULL);
 
     game.start_time = stm_now();
     game.dt = 0.0;
@@ -326,7 +323,7 @@ void gen_castle(Vec3 origin, f32 radius) {
 }
 
 Ent *wall_test(Vec3 p) {
-    for (Ent *e = 0; e = ent_game_iter(e); )
+    for (Ent *e = 0; (e = ent_game_iter(e)); )
         if (has_ent_prop(e, EntProp_Wall))
             if (line_dist3(e->wall_l, e->wall_r, p) < e->scale.x)
                 return e;
@@ -511,7 +508,7 @@ void generate_game() {
         e->pos = add3(origin, vec3(-2.0f, 0.0f, 0.0f));
     }
 
-    for (Ent *e = 0; e = ent_game_iter(e); )
+    for (Ent *e = 0; (e = ent_game_iter(e)); )
         if (e->shape == Shape_Plane)
             e->tint_color = vec4(1.3f, 1.0f, 1.5f, 1.0f);
 }
@@ -624,7 +621,7 @@ bool password_input(mu_Context *ctx, bool confirm) {
     if (confirm) mu_push_id(ctx, "confirm", sizeof("confirm"));
     char hidden_str[128],
          *pass_str = confirm ? login.confirm_pass_str : login.pass_str;
-    size_t pass_len = strlen(pass_str);
+    int pass_len = (int) strlen(pass_str);
     if (login.show_pass) strcpy(hidden_str, pass_str);
     else {
         for (int i = 0; i < pass_len; i++) hidden_str[i] = '*';
@@ -640,7 +637,7 @@ bool password_input(mu_Context *ctx, bool confirm) {
         strncpy(hidden_str, pass_str, min(strlen(hidden_str), pass_len));
         strcpy(pass_str, hidden_str);
     }
-    char input_pass_label[128] = "Password";
+    char input_pass_label[400] = "Password";
     if (confirm) {
         pass_match = pass_len && strcmp(login.pass_str, login.confirm_pass_str) == 0;
         sprintf(input_pass_label,
@@ -768,7 +765,7 @@ void login_window(mu_Context *ctx) {
             send_net_to_server_account_exists(exists, game.ws);
             login.bad_user_reason[0] = '\0';
         }
-        char input_user_label[128] = "Username";
+        char input_user_label[400] = "Username";
         if (login.bad_user_reason[0] != '\0')
             sprintf(input_user_label,
                     "Invalid Username: %s",
@@ -846,13 +843,10 @@ void frame(void) {
         game.generated = true;
     }
 
-    if (game.connector && (game.ws = bqws_pt_try_connector(game.connector))) {
-        game.connector = NULL;
-    }
     if (game.ws) {
         bqws_update(game.ws);
         bqws_msg *msg = NULL;
-        while (msg = bqws_recv(game.ws)) {
+        while ((msg = bqws_recv(game.ws))) {
             if (msg->type == BQWS_MSG_TEXT) {
                 printf("[Server]  %.*s", (int)msg->size, msg->data);
                 bqws_free_msg(msg);
@@ -882,7 +876,7 @@ void frame(void) {
 
     Vec3 cam = game.cam->pos;
     start_render(cam);
-    for (Ent *e = 0; e = ent_game_iter(e); )
+    for (Ent *e = 0; (e = ent_game_iter(e)); )
         if (!has_ent_prop(e, EntProp_Hidden)) draw_ent(e);
     end_render();
 
@@ -909,12 +903,21 @@ void cleanup(void) {
     bqws_pt_shutdown();
 }
 
+#ifdef TEST_SERV
+void *srv_thr_func(void *arg) {
+    (void) arg;
+    start_server();
+    pthread_exit(NULL);
+}
+#endif
+
 sapp_desc sokol_main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
     #ifdef TEST_SERV
-    _beginthread(start_server, 0, NULL);
+    pthread_t srv_thread = 0;
+    assert(0 == pthread_create(&srv_thread, NULL, srv_thr_func, NULL));
     #endif
 
     return (sapp_desc) {

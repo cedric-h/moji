@@ -1,8 +1,10 @@
+#ifdef _MSC_VER
 /* non-constant aggregate initializers */
 #pragma warning(disable:4204)
 /* anonymous struct/unions */
 #pragma warning(disable:4201)
 /* padding bytes are added */
+#pragma warning(disable:4324)
 #pragma warning(disable:4820)
 /* unknown preprocessor macros */
 #pragma warning(disable:4668)
@@ -10,6 +12,7 @@
 #pragma warning(disable:4706)
 /* initialization using address of automatic variable */
 #pragma warning(disable:4221)
+#endif
 
 #define LEN(arr) ((int) (sizeof arr / sizeof arr[0]))
 
@@ -80,4 +83,4 @@ bool decode_bool(uint8_t **data) {
     return (bool) *(*data)++;
 }
 
-#include "../build/formpack.h"
+#include "../formpack/build/formpack.h"

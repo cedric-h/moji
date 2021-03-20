@@ -9,6 +9,7 @@
 #include <math.h>
 #include <memory.h>
 #include <assert.h>
+#include <errno.h>
 
 #define MAX_USER_LEN (20)
 #define MAX_PASS_LEN (80)
@@ -35,8 +36,7 @@ static struct {
 void update_client_socket(Client*);
 
 #ifdef EMBED_SERV
-void start_server(void *p) {
-    (void)p;
+void start_server() {
 #else
 int main() {
 #endif

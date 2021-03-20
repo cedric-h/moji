@@ -9,6 +9,8 @@ typedef uint64_t u64;
 typedef float    f32;
 typedef double   f64;
 
+#include <math.h>
+
 #define PI32  3.14159265359f
 #define TAU32 6.28318530718f
 #define INLINE static inline
@@ -54,6 +56,14 @@ INLINE f32 randf(void) {
 
 INLINE f32 wrap(f32 a, f32 b) {
     return (a > b) ? (a - b) : a;
+}
+
+INLINE int min(int a, int b) {
+    return (a < b) ? a : b;
+}
+
+INLINE int max(int a, int b) {
+    return (a > b) ? a : b;
 }
 
 /* Lerps from angle a to b, taking the shortest path */
@@ -783,7 +793,7 @@ typedef union {
 } Mat4;
 
 INLINE Mat4 mul4x4(Mat4 a, Mat4 b) {
-    Mat4 out = { .nums = { 0 } };
+    Mat4 out = {0};
     i8 k, r, c;
     for (c = 0; c < 4; ++c)
         for (r = 0; r < 4; ++r) {

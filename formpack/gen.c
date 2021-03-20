@@ -1,8 +1,8 @@
 // Sample program that takes C-like information specified in the Metadesk format
 // and generates valid C code from it.
 
-#include "../metadesk/source/md.h"
-#include "../metadesk/source/md.c"
+#include "./metadesk/source/md.h"
+#include "./metadesk/source/md.c"
 #include <inttypes.h>
 
 /* Generates C code for a serializable struct. */
@@ -22,8 +22,8 @@ void gen_tagun(MD_Node *node);
 
 static FILE *f;
 int main(int argument_count, char **arguments) {
-    MD_Node *code = MD_ParseWholeFile(MD_S8Lit("../common/formpack.dd"));
-    f = fopen("../build/formpack.h", "wb");
+    MD_Node *code = MD_ParseWholeFile(MD_S8Lit("../formpack/formpack.dd"));
+    f = fopen("../formpack/build/formpack.h", "wb");
     
     for (MD_EachNode(node, code->first_child))
         if (MD_NodeHasTag(node, MD_S8Lit("struct")))

@@ -1,6 +1,7 @@
 *.swp
 *.swo
 build/
+nativebuild/
 pfiles/
 client/img/*.png
 *.rdbg

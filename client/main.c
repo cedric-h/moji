@@ -13,7 +13,7 @@
 #include "../bq_websocket/bq_websocket.h"
 #include "../bq_websocket/bq_websocket_platform.h"
 
-#define TEST_SERV
+// #define TEST_SERV
 
 #ifdef TEST_SERV
 #define EMBED_SERV
@@ -82,12 +82,6 @@ INLINE bool has_ent_prop(Ent *ent, EntProp prop) {
     return !!(ent->props[prop/64] & ((u64)1 << (prop%64)));
 }
 
-INLINE bool toggle_ent_prop(Ent *ent, EntProp prop) {
-    bool before = has_ent_prop(ent, prop);
-    ent->props[prop/64] ^= (u64)1 << (prop%64);
-    return before;
-}
-
 INLINE bool take_ent_prop(Ent *ent, EntProp prop) {
     bool before = has_ent_prop(ent, prop);
     ent->props[prop/64] &= ~((u64)1 << (prop%64));
@@ -109,49 +103,6 @@ INLINE void add_ent_child(Ent *parent, Ent *child) {
 
     parent->last_child = child;
 }
-
-/* Similar to ent_tree_iter, but not recursive. */
-INLINE Ent *ent_child_iter(Ent *node) {
-    if (node == NULL) return NULL;
-    return node->next;
-}
-
-/* Used to iterate through an ent's children, recursively */
-INLINE Ent *ent_tree_iter(Ent *node) {
-    if (node == NULL) return NULL;
-    if (node->first_child) return node->first_child;
-
-    while (node && node->next == NULL)
-        node = node->parent;
-    
-    if (node) return node->next;
-    return NULL;
-}
-
-/* NOTE: positioning assumes child is actually a child of parent */
-/*
-INLINE void detach_child(Ent *child) {
-    for (Ent *c; c = child->first_child;)
-        detach_child(c);
-
-    child->mat = get_ent_unscaled_mat(child);
-    child->pick_up_start_pos = child->mat.w.xyz;
-    Ent *parent = child->parent;
-    if (parent) {
-        if (parent->last_child == child) parent->last_child = child->prev;
-        if (parent->first_child == child) parent->first_child = child->next;
-    }
-
-    if (child->prev) child->prev->next = child->next;
-    if (child->next) child->next->prev = child->prev;
-    child->next = NULL;
-    child->prev = NULL;
-    child->parent = NULL;
-
-    if (child->mass > 0.0)
-        give_ent_prop(child, EntProp_Phys);
-}*/
-
 
 
 

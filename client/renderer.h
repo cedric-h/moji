@@ -199,10 +199,11 @@ _PRIVATE void _rendr_init() {
     *v++ = (Vertex){{ 0.5f,1.0f, 0.5f},32767,    0,vec3f(0.0f)};
     *v++ = (Vertex){{ 0.5f,1.0f,-0.5f},    0,    0,vec3f(0.0f)};
 
-    *v++ = (Vertex){{-0.5f,0.0f,-0.5f},32767,    0,vec3f(0.0f)}; /*GROUND PLANE GEOMETRY*/
-    *v++ = (Vertex){{-0.5f,0.0f, 0.5f},32767,32767,vec3f(0.0f)};
-    *v++ = (Vertex){{ 0.5f,0.0f, 0.5f},    0,32767,vec3f(0.0f)};
-    *v++ = (Vertex){{ 0.5f,0.0f,-0.5f},    0,    0,vec3f(0.0f)};
+    
+    *v++ = (Vertex){{ 0.5f,0.0f, 0.5f},32767,    0,vec3f(0.0f)}; /*GroundPlane GEOMETRY*/
+    *v++ = (Vertex){{ 0.5f,0.0f,-0.5f},32767,32767,vec3f(0.0f)};
+    *v++ = (Vertex){{-0.5f,0.0f,-0.5f},    0,32767,vec3f(0.0f)};
+    *v++ = (Vertex){{-0.5f,0.0f, 0.5f},    0,    0,vec3f(0.0f)};
 
     *v++ = (Vertex){{-0.5f,0.0f, 0.0f},    0,32767,vec3f(0.0f)};  /*PLANE BACK FACE */
     *v++ = (Vertex){{ 0.5f,0.0f, 0.0f},32767,32767,vec3f(0.0f)};
@@ -249,9 +250,9 @@ _PRIVATE void _rendr_init() {
     for (u16 i = pre_cir_verts + 1; i < ALL_VERTS; i++) {
         u16 l = (i == (pre_cir_verts + 1)) ? (ALL_VERTS - 1) : (i - 1);
         u16 r = i;
-        indices[writer++] = l;
-        indices[writer++] = pre_cir_verts;
         indices[writer++] = r;
+        indices[writer++] = pre_cir_verts;
+        indices[writer++] = l;
     }
     _smooth_normals(indices, ALL_INDICES, vert_data);
 
@@ -393,8 +394,8 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
         .num_mipmaps = 1 + (int) floor(log2((f32) max(x, y))),
         .max_anisotropy = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .min_filter = SG_FILTER_NEAREST_MIPMAP_NEAREST,
-        .mag_filter = SG_FILTER_NEAREST,
+        .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,
+        .mag_filter = SG_FILTER_LINEAR,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .data.subimage[0][0] = (sg_range) {
@@ -434,8 +435,8 @@ void start_offscreen(int width, int height, char *label) {
         .height = height,
         .max_anisotropy = 8,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .min_filter = SG_FILTER_NEAREST,
-        .mag_filter = SG_FILTER_NEAREST,
+        .min_filter = SG_FILTER_LINEAR,
+        .mag_filter = SG_FILTER_LINEAR,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .label = label,
@@ -453,8 +454,8 @@ void start_offscreen(int width, int height, char *label) {
     sg_begin_pass(offscreen_pass, &offscreen_pass_action);
     sg_apply_pipeline(rendr.offscreen.pip);
     rendr.view_proj = mul4x4(
-        ortho4x4(-0.5f, 0.5f, 0.5f, -0.5f, -1.0f, 1.0f),
-        scale4x4(vec3(-1.0f, 1.0f, 1.0f))
+        ortho4x4(-0.5f, 0.5f, 0.5f, -0.5f, 1.0f, -1.0f),
+        scale4x4(vec3(1.0f, 1.0f, 1.0f))
     );
 
     rendr.offscreen.img = img;
@@ -529,7 +530,7 @@ _PRIVATE int _camera_close_cmp(const void *av, const void *bv) {
     Draw *ad = (Draw *)av;
     Draw *bd = (Draw *)bv;
     f32 ay = (ad->shape == Shape_GroundPlane) ? -0.5f : 0.0f;
-    f32 by = (ad->shape == Shape_GroundPlane) ? -0.5f : 0.0f;
+    f32 by = (bd->shape == Shape_GroundPlane) ? -0.5f : 0.0f;
     Vec4 ap = mul4x44(ad->mat, vec4(0.0f, 0.0f, ay, 1.0f)),
          bp = mul4x44(bd->mat, vec4(0.0f, 0.0f, by, 1.0f));
     a = magmag3(sub3(rendr.eye, div3f(ap.xyz, ap.w)));

@@ -925,7 +925,7 @@ sapp_desc sokol_main(int argc, char *argv[]) {
         .frame_cb = frame,
         .cleanup_cb = cleanup,
         .event_cb = event,
-        // .high_dpi = true,
+        .high_dpi = true,
         .width = 1280,
         .height = 720,
         .sample_count = 8,

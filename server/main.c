@@ -24,7 +24,7 @@
 /* tracks how logged in a client is */
 typedef enum { _srv_Login_No, _srv_Login_Trial, _srv_Login_Full } _srv_Login;
 typedef struct {
-    _srv_Login signin;
+    _srv_Login login;
     char user[MAX_USER_LEN], pass[MAX_PASS_LEN];
     bqws_socket *ws;
 } _srv_Client;
@@ -233,11 +233,11 @@ void _srv_apply_client_request(_srv_Client *client, NetToServer nts) {
         user = &nts.account_trial.user;
 
         /* error handling */
-        if (client->signin == _srv_Login_Full) break;
+        if (client->login == _srv_Login_Full) break;
         if (!_srv_user_valid(client, user)) break;
         if (_srv_pfile_exists(unspool(*user))) break;
 
-        client->signin = _srv_Login_Trial;
+        client->login = _srv_Login_Trial;
         send_net_to_client_account_trial_accept(
             (NetToClient_AccountTrialAccept) { .user = *user },
             client->ws
@@ -248,13 +248,13 @@ void _srv_apply_client_request(_srv_Client *client, NetToServer nts) {
         pass = &nts.account_register.pass;
 
         /* error handling */
-        if (client->signin == _srv_Login_Full) break;
+        if (client->login == _srv_Login_Full) break;
         if (!_srv_user_valid(client, user)) break;
         if (!_srv_pass_valid(client, pass)) break;
         if (_srv_pfile_exists(unspool(*user))) break;
 
         if (!_srv_make_pfile(client, unspool(*user), unspool(*pass))) break;
-        client->signin = _srv_Login_Full;
+        client->login = _srv_Login_Full;
         send_net_to_client_account_login_accept(
             (NetToClient_AccountLoginAccept) { .user = *user },
             client->ws
@@ -265,7 +265,7 @@ void _srv_apply_client_request(_srv_Client *client, NetToServer nts) {
         pass = &nts.account_login.pass;
 
         /* error handling */
-        if (client->signin == _srv_Login_Full) break;
+        if (client->login == _srv_Login_Full) break;
         if (!_srv_user_valid(client, user)) break;
         if (!_srv_pass_valid(client, pass)) break;
         if (!_srv_pfile_exists(unspool(*user))) break;
@@ -276,7 +276,7 @@ void _srv_apply_client_request(_srv_Client *client, NetToServer nts) {
         String stored_pass = { .str = stored_pass_str, .len = (uint8_t) len };
 
         if (string_eq(&stored_pass, pass)) {
-            client->signin = _srv_Login_Full;
+            client->login = _srv_Login_Full;
             send_net_to_client_account_login_accept(
                 (NetToClient_AccountLoginAccept) { .user = *user },
                 client->ws

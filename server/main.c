@@ -21,22 +21,25 @@
 #include "../bq_websocket/bq_websocket_platform.h"
 #endif
 
-typedef enum { Signin_No, Signin_Trial, Signin_Full } Signin;
+/* tracks how logged in a client is */
+typedef enum { _srv_Login_No, _srv_Login_Trial, _srv_Login_Full } _srv_Login;
 typedef struct {
-    Signin signin;
+    _srv_Login signin;
     char user[MAX_USER_LEN], pass[MAX_PASS_LEN];
     bqws_socket *ws;
-} Client;
+} _srv_Client;
 
 #define MAX_CLIENTS 128
+/* internal server state */
 static struct {
-    Client clients[MAX_CLIENTS];
-} state;
+    _srv_Client clients[MAX_CLIENTS];
+} _srv;
 
-void update_client_socket(Client*);
+/* call once per tick, handles client input */
+void _srv_update_client_socket(_srv_Client*);
 
 #ifdef EMBED_SERV
-void start_server() {
+void srv_start() {
 #else
 int main() {
 #endif
@@ -51,9 +54,9 @@ int main() {
         bqws_socket *new_ws = bqws_pt_accept(sv, NULL, NULL);
         if (new_ws) {
             for (size_t i = 0; i < MAX_CLIENTS; i++) {
-                if (state.clients[i].ws == NULL) {
+                if (_srv.clients[i].ws == NULL) {
                     bqws_server_accept(new_ws, NULL);
-                    state.clients[i] = (Client) {
+                    _srv.clients[i] = (_srv_Client) {
                         .ws = new_ws,
                     };
                     new_ws = NULL;
@@ -66,14 +69,16 @@ int main() {
         /* Update existing clients */
         int connection_count = 0;
         for (size_t i = 0; i < MAX_CLIENTS; i++)
-            if (state.clients[i].ws) {
+            if (_srv.clients[i].ws) {
                 connection_count++;
-                update_client_socket(&state.clients[i]);
+                _srv_update_client_socket(&_srv.clients[i]);
             }
 
+        /* tacky ASCII animation ensures you the server is updating */
         char anim = "|\\-/"[tick / 10 % 4];
         printf("\r[%c %d users online %c]     ", anim, connection_count, anim);
         fflush(stdout);
+
         bqws_pt_sleep_ms(10);
     }
 
@@ -82,8 +87,11 @@ int main() {
     // bqws_pt_shutdown();
 }
 
-void apply_client_request(Client *client, NetToServer req);
-void update_client_socket(Client *client) {
+void _srv_apply_client_request(_srv_Client *client, NetToServer req);
+/* prints text websocket messages to stdout,
+   deserializes and applies to binary ones,
+   and closes empty sockets. */
+void _srv_update_client_socket(_srv_Client *client) {
     bqws_socket *ws = client->ws;
 
     bqws_update(ws);
@@ -93,7 +101,7 @@ void update_client_socket(Client *client) {
             printf("msg: %.*s\n", (int) msg->size, msg->data);
         } else if (msg->type == BQWS_MSG_BINARY) {
             uint8_t *data = (uint8_t *) msg->data;
-            apply_client_request(client, unpack_net_to_server(data));
+            _srv_apply_client_request(client, unpack_net_to_server(data));
         } else {
             bqws_close(ws, BQWS_CLOSE_GENERIC_ERROR, NULL, 0);
         }
@@ -107,14 +115,18 @@ void update_client_socket(Client *client) {
     }
 }
 
-bool pfile_exists(int user_len, char *user) {
+/* returns true if a player file with the given name already exists.
+   in the event of file i/o problems, still returns true, to prevent
+   potentially allowing someone to reserve an in-use username. */
+bool _srv_pfile_exists(int user_len, char *user) {
     char fpath[40 + MAX_USER_LEN];
     sprintf(fpath, "%s/%.*s.pfile", PFILE_PATH, user_len, user);
 
     return !(fopen(fpath, "rb") == NULL && errno == ENOENT);
 }
 
-void send_pfile_io_err(Client *client) {
+/* sends a NetToClient_AccountServerError */
+void _srv_send_pfile_io_err(_srv_Client *client) {
     char desc[256], *err_str = strerror(errno);
     int err_str_len = (int) min(235, strlen(err_str));
     sprintf(desc, "pfile i/o: %d (%.*s)", errno, err_str_len, err_str);
@@ -122,7 +134,11 @@ void send_pfile_io_err(Client *client) {
     send_net_to_client_account_server_error(res, client->ws);
 }
 
-bool make_pfile(Client *client, int user_len, char *user, int len, char *buf) {
+/* makes a new player file of up to `len` chars, filled with content from `buf`.
+   the username becomes the name of the new pfile.
+   returns false and sends a NetToClient_AccountServerError
+   if file i/o won't work well enough to facilitate this. */
+bool _srv_make_pfile(_srv_Client *client, int user_len, char *user, int len, char *buf) {
     char fpath[40 + MAX_USER_LEN];
     sprintf(fpath, "%s/%.*s.pfile", PFILE_PATH, user_len, user);
 
@@ -131,24 +147,30 @@ bool make_pfile(Client *client, int user_len, char *user, int len, char *buf) {
         fwrite(buf, 1, len, f);
         return true;
     } else {
-        send_pfile_io_err(client);
+        _srv_send_pfile_io_err(client);
         return false;
     }
 }
 
-int read_pfile(Client *client, int user_len, char *user, int len, char *buf) {
+/* reads up to `len` chars of a player file into `buf`.
+   `user` specifies whose pfile to find.
+   returns false and sends a NetToClient_AccountServerError
+   if file i/o won't work well enough to facilitate this. */
+int _srv_read_pfile(_srv_Client *client, int user_len, char *user, int len, char *buf) {
     char fpath[40 + MAX_USER_LEN];
     sprintf(fpath, "%s/%.*s.pfile", PFILE_PATH, user_len, user);
 
     FILE* f = fopen(fpath, "r+b");
     if (f != NULL) return (int) fread(buf, 1, len, f);
     else {
-        send_pfile_io_err(client);
+        _srv_send_pfile_io_err(client);
         return 0;
     }
 }
 
-bool user_valid(Client *client, String *user) {
+/* checks if a username is invalid,
+   if it is not valid returns false and sends a NetToCilent_AccountBadUser */
+bool _srv_user_valid(_srv_Client *client, String *user) {
     char wrong[256] = "";
     assert(wrong[0] == '\0');
 
@@ -171,7 +193,9 @@ bool user_valid(Client *client, String *user) {
     }
 }
 
-bool pass_valid(Client *client, String *pass) {
+/* checks if a password is invalid,
+   if it is not valid returns false and sends a NetToCilent_AccountBadPass */
+bool _srv_pass_valid(_srv_Client *client, String *pass) {
     char wrong[256] = "";
     assert(wrong[0] == '\0');
 
@@ -191,27 +215,29 @@ bool pass_valid(Client *client, String *pass) {
     }
 }
 
-void apply_client_request(Client *client, NetToServer nts) {
+void _srv_apply_client_request(_srv_Client *client, NetToServer nts) {
     String *user, *pass;
     switch (nts.kind) {
     case (NetToServerKind_AccountExists):;
         user = &nts.account_exists.user;
-        if (!user_valid(client, user)) break;
+        /* let them know if the username is invalid and quit if so */
+        if (!_srv_user_valid(client, user)) break;
 
         NetToClient_AccountStatus res = {
             .user = *user,
-            .exists = pfile_exists(unspool(*user)),
+            .exists = _srv_pfile_exists(unspool(*user)),
         };
         send_net_to_client_account_status(res, client->ws);
         break;
     case (NetToServerKind_AccountTrial):;
         user = &nts.account_trial.user;
 
-        if (client->signin == Signin_Full) break;
-        if (!user_valid(client, user)) break;
-        if (pfile_exists(unspool(*user))) break;
+        /* error handling */
+        if (client->signin == _srv_Login_Full) break;
+        if (!_srv_user_valid(client, user)) break;
+        if (_srv_pfile_exists(unspool(*user))) break;
 
-        client->signin = Signin_Trial;
+        client->signin = _srv_Login_Trial;
         send_net_to_client_account_trial_accept(
             (NetToClient_AccountTrialAccept) { .user = *user },
             client->ws
@@ -221,13 +247,14 @@ void apply_client_request(Client *client, NetToServer nts) {
         user = &nts.account_register.user;
         pass = &nts.account_register.pass;
 
-        if (client->signin == Signin_Full) break;
-        if (!user_valid(client, user)) break;
-        if (!pass_valid(client, pass)) break;
-        if (pfile_exists(unspool(*user))) break;
+        /* error handling */
+        if (client->signin == _srv_Login_Full) break;
+        if (!_srv_user_valid(client, user)) break;
+        if (!_srv_pass_valid(client, pass)) break;
+        if (_srv_pfile_exists(unspool(*user))) break;
 
-        if (!make_pfile(client, unspool(*user), unspool(*pass))) break;
-        client->signin = Signin_Full;
+        if (!_srv_make_pfile(client, unspool(*user), unspool(*pass))) break;
+        client->signin = _srv_Login_Full;
         send_net_to_client_account_login_accept(
             (NetToClient_AccountLoginAccept) { .user = *user },
             client->ws
@@ -237,18 +264,19 @@ void apply_client_request(Client *client, NetToServer nts) {
         user = &nts.account_login.user;
         pass = &nts.account_login.pass;
 
-        if (client->signin == Signin_Full) break;
-        if (!user_valid(client, user)) break;
-        if (!pass_valid(client, pass)) break;
-        if (!pfile_exists(unspool(*user))) break;
+        /* error handling */
+        if (client->signin == _srv_Login_Full) break;
+        if (!_srv_user_valid(client, user)) break;
+        if (!_srv_pass_valid(client, pass)) break;
+        if (!_srv_pfile_exists(unspool(*user))) break;
 
         char stored_pass_str[MAX_PASS_LEN];
-        int len = read_pfile(client, unspool(*user), MAX_PASS_LEN, stored_pass_str);
+        int len = _srv_read_pfile(client, unspool(*user), MAX_PASS_LEN, stored_pass_str);
         if (len == 0) break;
         String stored_pass = { .str = stored_pass_str, .len = (uint8_t) len };
 
         if (string_eq(&stored_pass, pass)) {
-            client->signin = Signin_Full;
+            client->signin = _srv_Login_Full;
             send_net_to_client_account_login_accept(
                 (NetToClient_AccountLoginAccept) { .user = *user },
                 client->ws

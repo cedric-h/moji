@@ -99,7 +99,7 @@ static struct {
 
 void *srv_thr_func(void *arg) {
     (void) arg;
-    start_server();
+    srv_start();
     pthread_exit(NULL);
 }
 #endif

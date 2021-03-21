@@ -1,3 +1,4 @@
+git submodule update --init --recursive
 mkdir formpack/build
 cd formpack/build
 cmake ..

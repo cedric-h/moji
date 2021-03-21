@@ -17,7 +17,7 @@ typedef enum {
 const Art cloud_art[] = { Art_Cloud, Art_RainyCloud, Art_SunnyCloud, Art_ThunderCloud };
 SubImg art_sub_img(Art art);
 
-#include "../build/client.glsl.h"
+#include "../client.glsl.h"
 #include "./mui/microui.h"
 #include "./mui/mui_renderer.c"
 

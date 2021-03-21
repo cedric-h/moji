@@ -1,8 +1,9 @@
 *.swp
 *.swo
 build/
-nativebuild/
+*build/
 pfiles/
 client/img/*.png
+client.glsl.h
 *.rdbg
 *.cap

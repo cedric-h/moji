@@ -41,9 +41,12 @@ void start_server() {
 int main() {
 #endif
     bqws_pt_init(NULL);
-    bqws_pt_server *sv = bqws_pt_listen(&(bqws_pt_listen_opts) { .port = 6666 });
+    bqws_pt_server *sv = bqws_pt_listen(&(bqws_pt_listen_opts) { .port = 80 });
 
+    int tick = 0;
     for (;;) {
+        tick++;
+
         /* Accept new connections */
         bqws_socket *new_ws = bqws_pt_accept(sv, NULL, NULL);
         if (new_ws) {
@@ -61,10 +64,16 @@ int main() {
         }
 
         /* Update existing clients */
+        int connection_count = 0;
         for (size_t i = 0; i < MAX_CLIENTS; i++)
-            if (state.clients[i].ws)
+            if (state.clients[i].ws) {
+                connection_count++;
                 update_client_socket(&state.clients[i]);
+            }
 
+        char anim = "|\\-/"[tick / 10 % 4];
+        printf("\r[%c %d users online %c]     ", anim, connection_count, anim);
+        fflush(stdout);
         bqws_pt_sleep_ms(10);
     }
 

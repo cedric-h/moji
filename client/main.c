@@ -238,7 +238,7 @@ void init(void) {
     game.mu_ctx.text_height = text_height;
 
     bqws_pt_init(NULL);
-    game.ws = bqws_pt_connect("ws://localhost:6666", NULL, NULL, NULL);
+    game.ws = bqws_pt_connect("ws://localhost:80", NULL, NULL, NULL);
 
     game.start_time = stm_now();
     game.dt = 0.0;

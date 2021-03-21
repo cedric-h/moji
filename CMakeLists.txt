@@ -61,28 +61,30 @@ set_source_files_properties(./formpack/build/formpack.h PROPERTIES GENERATED TRU
 #=== EXECUTABLE: client
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/win32/sokol-shdc.exe --input ../client/client.glsl --output ./client.glsl.h --slang hlsl5)
+    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/win32/sokol-shdc.exe --input ../client/client.glsl --output ../client.glsl.h --slang hlsl5)
 elseif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/osx/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang metal_macos)
+    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/osx/sokol-shdc --input ../client/client.glsl --output ../client.glsl.h --slang metal_macos)
+elseif(CMAKE_SYSTEM_NAME STREQUAL Emscripten)
+    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/linux/sokol-shdc --input ../client/client.glsl --output ../client.glsl.h --slang glsl100)
 else()
-    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/linux/sokol-shdc --input ../client/client.glsl --output ./client.glsl.h --slang glsl330)
+    set(COMPILE_SHADER_CMD ../sokol-tools-bin/bin/linux/sokol-shdc --input ../client/client.glsl --output ../client.glsl.h --slang glsl330)
 endif()
-add_custom_command(OUTPUT client.glsl.h
+add_custom_command(OUTPUT ../client.glsl.h
     COMMAND ${COMPILE_SHADER_CMD}
     DEPENDS client/client.glsl
 )
-set_source_files_properties(client.glsl.h PROPERTIES
+set_source_files_properties(../client.glsl.h PROPERTIES
     GENERATED TRUE
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    add_executable(client WIN32 client/main.c client.glsl.h ./formpack/build/formpack.h)
+    add_executable(client WIN32 client/main.c ../client.glsl.h ./formpack/build/formpack.h)
 
     set_target_properties(client PROPERTIES
         LINK_FLAGS /SUBSYSTEM:CONSOLE
     )
 else()
-    add_executable(client client/main.c client.glsl.h ./formpack/build/formpack.h)
+    add_executable(client client/main.c ../client.glsl.h ./formpack/build/formpack.h)
 endif()
 
 target_link_libraries(client sokol)

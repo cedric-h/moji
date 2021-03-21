@@ -151,43 +151,6 @@ void init(void) {
     game.last_render = stm_now();
 }
 
-void event(const sapp_event *ev) {
-    ui_event(ev);
-
-    switch (ev->type) {
-        case SAPP_EVENTTYPE_MOUSE_MOVE:;
-            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
-            break;
-        case SAPP_EVENTTYPE_MOUSE_DOWN:;
-            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
-            if (ev->mouse_button == SAPP_MOUSEBUTTON_LEFT)
-                input.left_mb_down = true;
-            break;
-        case SAPP_EVENTTYPE_MOUSE_UP:;
-            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
-            if (ev->mouse_button == SAPP_MOUSEBUTTON_LEFT)
-                input.left_mb_down = false;
-            break;
-        case SAPP_EVENTTYPE_KEY_DOWN:;
-            #ifndef NDEBUG
-                if (ev->key_code == SAPP_KEYCODE_ESCAPE)
-                    sapp_request_quit();
-            #endif
-            if (!input.keys_down[(int) ev->key_code])
-                input.keys_pressed[(int) ev->key_code] = true;
-            input.keys_down[(int) ev->key_code] = true;
-            break;
-        case SAPP_EVENTTYPE_KEY_UP:;
-            input.keys_down[(int) ev->key_code] = false;
-            break;
-        case SAPP_EVENTTYPE_QUIT_REQUESTED:;
-            puts("application closing!");
-            break;
-        default:;
-            break;
-    }
-}
-
 void net_frame(void);
 void frame(void) {
     if (!rendr.loaded) {
@@ -248,6 +211,44 @@ void net_frame(void) {
         }
     }
 }
+
+void event(const sapp_event *ev) {
+    ui_event(ev);
+
+    switch (ev->type) {
+        case SAPP_EVENTTYPE_MOUSE_MOVE:;
+            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
+            break;
+        case SAPP_EVENTTYPE_MOUSE_DOWN:;
+            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
+            if (ev->mouse_button == SAPP_MOUSEBUTTON_LEFT)
+                input.left_mb_down = true;
+            break;
+        case SAPP_EVENTTYPE_MOUSE_UP:;
+            input.mouse_pos = vec2(ev->mouse_x, ev->mouse_y);
+            if (ev->mouse_button == SAPP_MOUSEBUTTON_LEFT)
+                input.left_mb_down = false;
+            break;
+        case SAPP_EVENTTYPE_KEY_DOWN:;
+            #ifndef NDEBUG
+                if (ev->key_code == SAPP_KEYCODE_ESCAPE)
+                    sapp_request_quit();
+            #endif
+            if (!input.keys_down[(int) ev->key_code])
+                input.keys_pressed[(int) ev->key_code] = true;
+            input.keys_down[(int) ev->key_code] = true;
+            break;
+        case SAPP_EVENTTYPE_KEY_UP:;
+            input.keys_down[(int) ev->key_code] = false;
+            break;
+        case SAPP_EVENTTYPE_QUIT_REQUESTED:;
+            puts("application closing!");
+            break;
+        default:;
+            break;
+    }
+}
+
 
 void cleanup(void) {
     sfetch_shutdown();

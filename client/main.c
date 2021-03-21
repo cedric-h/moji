@@ -21,11 +21,6 @@
 
 #include "renderer.h"
 
-void panic(char *msg) {
-    puts(msg);
-    sapp_request_quit();
-}
-
 static struct {
     bool keys_down[350];
     bool keys_pressed[350];

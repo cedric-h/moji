@@ -1,12 +1,11 @@
 # Networking Messages
-I doubt that much need be said to persuade you that it's of critical importance that the
-server and the client are speaking the same language.
+The server and the client need to know what kind of messages to expect from each other.
 
-To remedy this, a metaprogram found in `formpack/` turns a declarative,
+To help with this, a metaprogram found in `formpack/` turns a declarative,
 high-level description of networking messages into C code for serializing,
 deserializing and verifying messages of the specified layout.
 
-An example of a naive protocol described in formpack/formpack.dd
+An example of a naive protocol described in `formpack/formpack.dd`
 ```rs
 @tagun NetToServer: {
     RequestMove: { x: float, y: float },
@@ -18,10 +17,20 @@ An example of a naive protocol described in formpack/formpack.dd
     MoveTo: { id: uint16_t, x: float, y: float },
 }
 ```
-The format here is [metadesk](https://github.com/Dion-Systems/metadesk). The `@tagun` tag denotes a "tagged union," analgous to what Rust calls an `enum`.
+The format here is [metadesk](https://github.com/Dion-Systems/metadesk).
+The `@tagun` tag denotes a "tagged union," analgous to what Rust calls an `enum`.
+
+The source code for the metaprogram is in `formpack/gen.c`.
+It's built using its own CMakeLists.txt which the main project's CMake initiates
+whenever `formpack/formpack.dd` or `formpack/gen.c` change.
+
+While code for the serializing the structs and tagged unions is generated, code for serializing/deserializing the basic datatypes (`bool`, `uint16_t`, `String`, etc.) can be found in `common/common.h`.
 
 ## Handling the variants
-If you had a `NetToServer` named `nts` in C, you could use `nts->kind` to access the tagged union's tag. In this example, for a `NetToServer` message, the only valid tags are `NetToServerKind_RequestMove`, and `NetToServerKind_AttackAt`. Typically, usage code uses a switch/case to enumerate the variants.
+If you had a pointer to a `NetToServer` named `nts` in C, you could use `nts->kind` to access
+the tagged union's tag. In this example, for a `NetToServer` message, the only valid tags are
+`NetToServerKind_RequestMove`, and `NetToServerKind_AttackAt`. Typically, usage code uses a
+switch/case to enumerate the variants.
 ```c
 switch (nts->kind) {
 case (NetToServerKind_RequestMove):;

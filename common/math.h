@@ -67,20 +67,37 @@ INLINE int max(int a, int b) {
 }
 
 /* Lerps from angle a to b, taking the shortest path */
-f32 lerp_rad(f32 a, f32 t, f32 b) {
+f32 lerp_rad(f32 a, f32 b, f32 t) {
     f32 difference = fmodf(b - a, TAU32),
         distance = fmodf(2.0f * difference, TAU32) - difference;
     return a + distance * t;
 }
 
-INLINE f32 clamp(f32 min, f32 val, f32 max) {
+#define CLAMP (min, val, max) ((val < min) ? min : ((val > max) ? max : val))
+INLINE int clamp(int min, int val, int max) {
     if (val < min) return min;
     if (val > max) return max;
     return val;
 }
 
-INLINE f32 lerp(f32 a, f32 t, f32 b) {
+INLINE f32 clampf(f32 min, f32 val, f32 max) {
+    if (val < min) return min;
+    if (val > max) return max;
+    return val;
+}
+
+INLINE f32 lerp(f32 a, f32 b, f32 t) {
     return (1.0f - t) * a + t * b;
+}
+INLINE f32 inv_lerp(f32 a, f32 b, f32 v) {
+    return (v - a) / (b - a);
+}
+INLINE f32 smoothstep_ex(f32 edge0, f32 edge1, f32 x) {
+    x = clampf((x - edge0) / (edge1 - edge0), 0.0, 1.0); 
+    return x * x * (3 - 2 * x);
+}
+INLINE f32 smoothstep(f32 x) {
+    return smoothstep_ex(0.0, 1.0, x);
 }
 
 INLINE f32 to_radians(f32 degrees) {
@@ -164,7 +181,7 @@ INLINE f32 dot2(Vec2 a, Vec2 b) {
     return a.x*b.x + a.y*b.y;
 }
 
-INLINE Vec2 lerp2(Vec2 a, f32 t, Vec2 b) {
+INLINE Vec2 lerp2(Vec2 a, Vec2 b, f32 t) {
     return add2(mul2f(a, 1.0f - t), mul2f(b, t));
 }
 
@@ -201,24 +218,21 @@ INLINE i32 fastfloor(f32 fp) {
     return (fp < i) ? (i - 1) : (i);
 }
 
-static const uint8_t perm[256] = {
-    151, 160, 137, 91, 90, 15,
-    131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23,
-    190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33,
-    88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166,
-    77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244,
-    102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196,
-    135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123,
-    5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42,
-    223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
-    129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228,
-    251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107,
-    49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254,
-    138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180
-};
+static uint8_t simplex_gradients[256] = {0};
+void seed_simplex() {
+    int i = 0;
+    while (i < 256) {
+        u32 r = rand_u32();
+        simplex_gradients[i++] = (uint8_t) (r << 0 );
+        simplex_gradients[i++] = (uint8_t) (r << 8 );
+        simplex_gradients[i++] = (uint8_t) (r << 16);
+        simplex_gradients[i++] = (uint8_t) (r << 24);
+    }
+}
+
 
 INLINE u8 hash(i32 i) {
-    return perm[(u8) i];
+    return simplex_gradients[(u8) i];
 }
 
 static f32 grad(i32 hash, f32 x, f32 y) {
@@ -387,12 +401,12 @@ INLINE f32 dot3(Vec3 a, Vec3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
-INLINE Vec3 lerp3(Vec3 a, f32 t, Vec3 b) {
+INLINE Vec3 lerp3(Vec3 a, Vec3 b, f32 t) {
     return add3(mul3f(a, 1.0f - t), mul3f(b, t));
 }
 
 INLINE Vec3 quad_bez3(Vec3 a, Vec3 b, Vec3 c, f32 t) {
-    return lerp3(lerp3(a, t, b), t, lerp3(b, t, c));
+    return lerp3(lerp3(a, b, t), lerp3(b, c, t), t);
 }
 
 INLINE f32 mag3(Vec3 a) {
@@ -504,11 +518,11 @@ size_t fill_sphere_points(size_t detail, Vec3 *out) {
              b = icosa_verts[icosa_indices[tri][1]],
              c = icosa_verts[icosa_indices[tri][2]];
         for (int x = 0; x <= size; x++) {
-            Vec3 ay = lerp3(a, (f32) x / (f32) size, c),
-                 by = lerp3(b, (f32) x / (f32) size, c);
+            Vec3 ay = lerp3(a, c, (f32) x / (f32) size),
+                 by = lerp3(b, c, (f32) x / (f32) size);
             int rows = size - x;
             for (int y = 0; y <= rows; y++) {
-                Vec3 v = (y == 0 && x == size) ? ay : lerp3(ay, (f32) y / (f32) rows, by);
+                Vec3 v = (y == 0 && x == size) ? ay : lerp3(ay, by, (f32) y / (f32) rows);
                 v = norm3(v);
 
                 for (int i = 0; i < (out - start_out); i++)
@@ -612,7 +626,7 @@ INLINE f32 dot4(Vec4 a, Vec4 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
 }
 
-INLINE Vec4 lerp4(Vec4 a, f32 t, Vec4 b) {
+INLINE Vec4 lerp4(Vec4 a, Vec4 b, f32 t) {
     return add4(mul4f(a, 1.0f - t), mul4f(b, t));
 }
 
@@ -684,7 +698,7 @@ INLINE Vec3 mulQ3(Quat q, Vec3 v) {
     return add3(add3(v, mul3f(t, q.w)), cross3(q.xyz, t));
 }
 
-Quat slerpQ(Quat l, f32 time, Quat r) {
+Quat slerpQ(Quat l, Quat r, f32 time) {
     if (eq4(l.xyzw, r.xyzw))
         return l;
 

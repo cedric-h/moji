@@ -161,6 +161,13 @@ void frame(void) {
     if (!game.generated) {
         {
             Ent *e = add_ent();
+            e->shape = Shape_GroundPlane;
+            seed_simplex();
+            e->img = full_sub_img(rendr_mapgen_tex(200 * 16));
+            e->scale = vec3f(8.0f);
+        }
+        {
+            Ent *e = add_ent();
             e->img = art_sub_img(Art_Wizard);
             e->pos = vec3(1.0f, 0.0f, 1.0f);
         }

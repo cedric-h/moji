@@ -469,6 +469,31 @@ sg_image end_offscreen(void) {
     return rendr.offscreen.img;
 }
 
+sg_image rendr_mapgen_tex(int size) {
+    int img_size = size * size * 4;
+    u8 *img = malloc(img_size);
+    mapgen_ground_img(img, size);
+    /* NOTE: https://github.com/floooh/sokol/issues/102 */
+    sg_image ret = sg_make_image_with_mipmaps(&(sg_image_desc) {
+        .width = size,
+        .height = size,
+        .num_mipmaps = 1 + (int) floor(log2((f32) size)),
+        .max_anisotropy = 8,
+        .pixel_format = SG_PIXELFORMAT_RGBA8,
+        .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,
+        .mag_filter = SG_FILTER_LINEAR,
+        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+        .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+        .data.subimage[0][0] = (sg_range) {
+            .ptr = img,
+            .size = img_size,
+        },
+        .label = "rendr_mapgen_tex",
+    });
+    free(img);
+    return ret;
+}
+
 _PRIVATE void _draw_default(Draw *d) {
     rendr.deflt.bind.fs_images[SLOT_art] = d->img.src;
     sg_apply_bindings(&rendr.deflt.bind);

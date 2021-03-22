@@ -18,6 +18,7 @@
 
 #include <string.h>
 #include "math.h"
+#include "mapgen.h"
 
 typedef struct {
     uint8_t *data;

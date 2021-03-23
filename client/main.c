@@ -145,6 +145,12 @@ void init(void) {
 
     bqws_pt_init(NULL);
     game.ws = bqws_pt_connect("ws://localhost:80", NULL, NULL, NULL);
+    /* sending the server a message should keep the connection alive long enough
+       to finish generating the world? TODO: heartbeats */
+    NetToServer_AccountExists exists = {
+        .user = string_from_nulterm(login.user_str),
+    };
+    send_net_to_server_account_exists(exists, game.ws);
 
     game.start_time = stm_now();
     game.dt = 0.0;
@@ -160,11 +166,21 @@ void frame(void) {
 
     if (!game.generated) {
         {
+            seed_simplex();
+            _ui.minimap = rendr_mapgen_tex(128, mapgen_minimap_img, NULL);
+
+            float tile_size = 40.0f / 200.0f;
+            mapgen_GroundOpts opts = {
+                .tile_corner = vec2f(0.5f - tile_size / 2.0f),
+                .tile_size = tile_size,
+            };
+            /* works because tile_size is expressed as a portion of a 0..1 tile */
+            int tile_pixels = (int) ((200.0 * 16.0) * tile_size);
             Ent *e = add_ent();
             e->shape = Shape_GroundPlane;
-            seed_simplex();
-            e->img = full_sub_img(rendr_mapgen_tex(200 * 16));
-            e->scale = vec3f(8.0f);
+            e->img = art_sub_img(Art_Cactus);
+            e->img = full_sub_img(rendr_mapgen_tex(tile_pixels, mapgen_ground_img, &opts));
+            e->scale = vec3f(40.0f);
         }
         {
             Ent *e = add_ent();

@@ -26,7 +26,7 @@ float sampleShadow(sampler2D shadowMap, vec2 uv, float compare) {
     uv.y = 1.0-uv.y;
     #endif
     float depth = decodeDepth(texture(shadowMap, vec2(uv.x, uv.y)));
-    // depth -= 0.0004;
+    depth += 0.0004;
     return step(compare, depth);
 }
 
@@ -180,7 +180,7 @@ uniform sampler2D art;
 out vec4 fragColor;
 
 void main() {
-    vec3 light_color = vec3(0.78, 0.88, 0.28);
+    vec3 light_color = vec3(0.78, 0.88, 0.58);
     float specPower = 2.2;
     float ambientIntensity = 0.25;
 

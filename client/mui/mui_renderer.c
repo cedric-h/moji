@@ -22,7 +22,7 @@ typedef struct {
     Mat4 mvp;
 } mui_params;
 
-void r_init(sg_image img) {
+void r_init(sg_image spritesheet) {
     sg_buffer_desc vbuf_desc = { .size = sizeof(vert_buf), .usage = SG_USAGE_STREAM };
     sg_buffer_desc vcol_desc = { .size = sizeof(color_buf), .usage = SG_USAGE_STREAM };
     sg_buffer_desc vtex_desc = { .size = sizeof(tex_buf), .usage = SG_USAGE_STREAM };
@@ -43,7 +43,7 @@ void r_init(sg_image img) {
         .vertex_buffers[0] = s_vbuf,
         .vertex_buffers[1] = s_vtex,
         .vertex_buffers[2] = s_vcol,
-        .fs_images[0] = img,
+        .fs_images[SLOT_tex] = spritesheet,
         .index_buffer = s_ibuf
     };
 
@@ -173,6 +173,11 @@ void r_draw_art(Art art, mu_Rect rect, mu_Color color) {
     push_quad(rect, src, color, false);
 }
 
+void r_draw_custom_img(mu_Rect rect, mu_Color color) {
+    int full = SPRITESHEET_SIZE;
+    push_quad(rect, mu_rect(0.0, 0.0, full, full), color, false);
+}
+
 int r_get_text_width(const char *text, int len) {
     int res = 0;
     for (const char *p = text; *p && len--; p++) {
@@ -190,6 +195,7 @@ int r_get_text_height(void) {
 
 typedef enum {
     CMD_DRAW,
+    CMD_SET_IMG,
     CMD_CLIP
 } cmd_type;
 
@@ -199,6 +205,7 @@ typedef struct {
     cmd_type type;
     union {
         mu_Rect clip;
+        sg_image img;
         struct {
             int start_buf_idx;
             int length;
@@ -237,7 +244,15 @@ void draw_fifo_queue_clip(draw_fifo* self, mu_Rect r) {
     };
 }
 
-void r_draw_commands(mu_Context* ctx, int width, int height) {
+void draw_fifo_queue_set_image(draw_fifo* self, sg_image img) {
+    assert(self->cmd_idx < MAX_CMDS);
+    self->cmds[self->cmd_idx++] = (draw_cmd){
+        .type = CMD_SET_IMG,
+        .img = img
+    };
+}
+
+void r_draw_commands(mu_Context* ctx, sg_image spritesheet, int width, int height) {
     mui_params vs_params;
 
     vs_params.mvp = ortho4x4(0.f, (f32) width, (f32) height, 0.f, -1.f, 1.f);
@@ -266,7 +281,16 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
             case MU_COMMAND_ICON:
                 r_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
             case MU_COMMAND_ART:
-                r_draw_art(cmd->art.art, cmd->art.rect, cmd->art.color); break;
+                if (cmd->art.in_spritesheet)
+                    r_draw_art(cmd->art.art, cmd->art.rect, cmd->art.color);
+                else {
+                    draw_fifo_queue_draw(&cmd_fifo, buf_idx);
+                    draw_fifo_queue_set_image(&cmd_fifo, (sg_image) { cmd->art.art });
+                    r_draw_custom_img(cmd->art.rect, cmd->art.color);
+                    draw_fifo_queue_draw(&cmd_fifo, buf_idx);
+                    draw_fifo_queue_set_image(&cmd_fifo, spritesheet);
+                }
+                break;
             case MU_COMMAND_CLIP: {
                 draw_fifo_queue_draw(&cmd_fifo, buf_idx);
                 draw_fifo_queue_clip(&cmd_fifo, cmd->clip.rect);
@@ -288,6 +312,11 @@ void r_draw_commands(mu_Context* ctx, int width, int height) {
                 if (c->draw.length != 0) {
                     sg_draw(c->draw.start_buf_idx*6, c->draw.length*6, 1);
                 }
+                break;
+            }
+            case CMD_SET_IMG: {
+                s_bind.fs_images[SLOT_tex] = c->img;
+                sg_apply_bindings(&s_bind);
                 break;
             }
             case CMD_CLIP: {

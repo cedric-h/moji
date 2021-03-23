@@ -522,7 +522,7 @@ void mu_draw_icon(mu_Context *ctx, int id, mu_Rect rect, mu_Color color) {
   if (clipped) { mu_set_clip(ctx, unclipped_rect); }
 }
 
-void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color) {
+void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color, bool in_ss) {
   mu_Command *cmd;
   /* do clip command if the rect isn't fully contained within the cliprect */
   int clipped = mu_check_clip(ctx, rect);
@@ -531,6 +531,7 @@ void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color) {
   /* do icon command */
   cmd = mu_push_command(ctx, MU_COMMAND_ART, sizeof(mu_ArtCommand));
   cmd->art.art = art;
+  cmd->art.in_spritesheet = in_ss;
   cmd->art.rect = rect;
   cmd->art.color = color;
   /* reset clipping if it was set */
@@ -763,7 +764,7 @@ int mu_button_ex(mu_Context *ctx, const char *label, int icon, int art, int opt)
   if (icon) { mu_draw_icon(ctx, icon, r, ctx->style->colors[MU_COLOR_TEXT]); }
   int button_art_color = MU_COLOR_BUTTONART;
   button_art_color += (ctx->focus == id) ? 2 : (ctx->hover == id) ? 1 : 0;
-  if (art) { mu_draw_art(ctx, art, r, ctx->style->colors[button_art_color]); }
+  if (art) { mu_draw_art(ctx, art, r, ctx->style->colors[button_art_color], true); }
 
   return res;
 }

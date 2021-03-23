@@ -14687,7 +14687,7 @@ SOKOL_API_IMPL sg_image sg_make_image_with_mipmaps(const sg_image_desc* desc_)
                 || desc.pixel_format == SG_PIXELFORMAT_R8);
 
     unsigned pixel_size = _sg_pixelformat_bytesize(desc.pixel_format);
-    static unsigned char* buffers[SG_CUBEFACE_NUM][SG_MAX_MIPMAPS] = {0}; // TODO: better allocation
+    unsigned char* buffers[SG_CUBEFACE_NUM][SG_MAX_MIPMAPS] = {0}; // TODO: better allocation
 
     for (int cube_face = 0; cube_face < SG_CUBEFACE_NUM; ++cube_face)
     {

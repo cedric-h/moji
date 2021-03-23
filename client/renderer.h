@@ -388,6 +388,8 @@ _PRIVATE void _load_image(const sfetch_response_t* res) {
     }
 
     /* NOTE: https://github.com/floooh/sokol/issues/102 */
+    /* NOTE: sg_make_image_with_mipmaps has created segfaults in my
+             OpenGL drivers when given different parameters than these */
     rendr.spritesheet = sg_make_image_with_mipmaps(&(sg_image_desc) {
         .width = x,
         .height = y,
@@ -469,16 +471,16 @@ sg_image end_offscreen(void) {
     return rendr.offscreen.img;
 }
 
-sg_image rendr_mapgen_tex(int size) {
+sg_image rendr_mapgen_tex(int size, void (*mapgen)(uint8_t *, int, void*), void *opts) {
     int img_size = size * size * 4;
     u8 *img = malloc(img_size);
-    mapgen_ground_img(img, size);
+    mapgen(img, size, opts);
     /* NOTE: https://github.com/floooh/sokol/issues/102 */
     sg_image ret = sg_make_image_with_mipmaps(&(sg_image_desc) {
         .width = size,
         .height = size,
         .num_mipmaps = 1 + (int) floor(log2((f32) size)),
-        .max_anisotropy = 8,
+        .max_anisotropy = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .min_filter = SG_FILTER_LINEAR_MIPMAP_LINEAR,
         .mag_filter = SG_FILTER_LINEAR,
@@ -486,7 +488,7 @@ sg_image rendr_mapgen_tex(int size) {
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .data.subimage[0][0] = (sg_range) {
             .ptr = img,
-            .size = img_size,
+            .size = size * size, // you don't want the # of channels here
         },
         .label = "rendr_mapgen_tex",
     });
@@ -527,7 +529,7 @@ void start_render(Vec3 cam) {
     rendr.draw.count = 0;
 
     /* matrices for shadow pass */
-    rendr.light.dir = vec3(4.0f,24.0f,24.0f);
+    rendr.light.dir = vec3(4.0f,18.0f,24.0f);
     Mat4 light_view = look_at4x4(rendr.light.dir, vec3f(0.0f), vec3_y());
 
     /* bias matrix for converting view-space coordinates into uv coordinates */
@@ -572,7 +574,7 @@ void end_render(void) {
     /* fragment uniforms for light shader */
     fs_light_params_t fs_light_params = {
         .lightDir = norm3(rendr.light.dir),
-        .shadowMapSize = vec2f(2048),
+        .shadowMapSize = vec2f(2048 * 2),
         .eyePos = vec3f(5.0f)
     };
 

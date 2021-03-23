@@ -73,13 +73,7 @@ f32 lerp_rad(f32 a, f32 b, f32 t) {
     return a + distance * t;
 }
 
-#define CLAMP (min, val, max) ((val < min) ? min : ((val > max) ? max : val))
-INLINE int clamp(int min, int val, int max) {
-    if (val < min) return min;
-    if (val > max) return max;
-    return val;
-}
-
+#define clamp(min, val, max) (((val) < (min)) ? (min) : (((val) > (max)) ? (max) : (val)))
 INLINE f32 clampf(f32 min, f32 val, f32 max) {
     if (val < min) return min;
     if (val > max) return max;

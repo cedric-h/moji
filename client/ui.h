@@ -1,6 +1,7 @@
 static struct {
     mu_Context mu_ctx;
-} ui;
+    sg_image minimap;
+} _ui;
 
 #include "ui/login_window.h"
 
@@ -15,6 +16,16 @@ void _inventory_window(mu_Context *ctx) {
     }
 }
 
+void _map_window(mu_Context *ctx) {
+    int w = 150, h = 150, view_w = sapp_width();
+    if (mu_begin_window_ex(ctx, "Map", mu_rect(view_w - w, 0, w, h), MU_OPT_NOTITLE)) {
+        mu_layout_row(ctx, 1, (int[]) { -1 }, -1);
+        mu_draw_art(ctx, _ui.minimap.id,
+                    mu_layout_next(ctx), mu_color(255,255,255,255),
+                    false);
+        mu_end_window(ctx);
+    }
+}
 
 static int text_width(mu_Font font, const char *text, int len) {
     (void) font;
@@ -28,19 +39,20 @@ static int text_height(mu_Font font) {
 }
 
 void ui_init(void) {
-    mu_init(&ui.mu_ctx);
+    mu_init(&_ui.mu_ctx);
 
-    ui.mu_ctx.text_width = text_width;
-    ui.mu_ctx.text_height = text_height;
+    _ui.mu_ctx.text_width = text_width;
+    _ui.mu_ctx.text_height = text_height;
 }
 
 void ui_frame(void) {
-    mu_begin(&ui.mu_ctx);
-    _login_window(&ui.mu_ctx);
-    _inventory_window(&ui.mu_ctx);
-    mu_end(&ui.mu_ctx);
+    mu_begin(&_ui.mu_ctx);
+    _login_window(&_ui.mu_ctx);
+    _inventory_window(&_ui.mu_ctx);
+    _map_window(&_ui.mu_ctx);
+    mu_end(&_ui.mu_ctx);
 
-    r_draw_commands(&ui.mu_ctx, sapp_width(), sapp_height());
+    r_draw_commands(&_ui.mu_ctx, rendr.spritesheet, sapp_width(), sapp_height());
 }
 
 void ui_event(const sapp_event *ev) {
@@ -57,27 +69,27 @@ void ui_event(const sapp_event *ev) {
 
     switch (ev->type) {
     case SAPP_EVENTTYPE_MOUSE_DOWN:
-        mu_input_mousedown(&ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y, (1<<ev->mouse_button));
+        mu_input_mousedown(&_ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y, (1<<ev->mouse_button));
         break;
     case SAPP_EVENTTYPE_MOUSE_UP:
-        mu_input_mouseup(&ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y, (1<<ev->mouse_button));
+        mu_input_mouseup(&_ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y, (1<<ev->mouse_button));
         break;
     case SAPP_EVENTTYPE_MOUSE_MOVE:
-        mu_input_mousemove(&ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y);
+        mu_input_mousemove(&_ui.mu_ctx, (int)ev->mouse_x, (int)ev->mouse_y);
         break;
     case SAPP_EVENTTYPE_MOUSE_SCROLL:
-        mu_input_scroll(&ui.mu_ctx, 0, (int)ev->scroll_y);
+        mu_input_scroll(&_ui.mu_ctx, 0, (int)ev->scroll_y);
         break;
     case SAPP_EVENTTYPE_KEY_DOWN:
-        mu_input_keydown(&ui.mu_ctx, key_map[ev->key_code & 511]);
+        mu_input_keydown(&_ui.mu_ctx, key_map[ev->key_code & 511]);
         break;
     case SAPP_EVENTTYPE_KEY_UP:
-        mu_input_keyup(&ui.mu_ctx, key_map[ev->key_code & 511]);
+        mu_input_keyup(&_ui.mu_ctx, key_map[ev->key_code & 511]);
         break;
     case SAPP_EVENTTYPE_CHAR:
         {
             char txt[2] = { (char)(ev->char_code & 255), 0 };
-            mu_input_text(&ui.mu_ctx, txt);
+            mu_input_text(&_ui.mu_ctx, txt);
         }
         break;
     default:

@@ -5,6 +5,8 @@
 ** under the terms of the MIT license. See `microui.c` for details.
 */
 
+#include <stdbool.h>
+
 #ifndef MICROUI_H
 #define MICROUI_H
 
@@ -126,7 +128,11 @@ typedef struct { mu_BaseCommand base; mu_Rect rect; } mu_ClipCommand;
 typedef struct { mu_BaseCommand base; mu_Rect rect; mu_Color color; } mu_RectCommand;
 typedef struct { mu_BaseCommand base; mu_Font font; mu_Vec2 pos; mu_Color color; char str[1]; } mu_TextCommand;
 typedef struct { mu_BaseCommand base; mu_Rect rect; int id; mu_Color color; } mu_IconCommand;
-typedef struct { mu_BaseCommand base; mu_Rect rect; int art; mu_Color color; } mu_ArtCommand;
+typedef struct { mu_BaseCommand base; mu_Rect rect;
+                                      int art;
+                                      mu_Color color;
+                                      bool in_spritesheet;
+               } mu_ArtCommand;
 
 typedef union {
   int type;
@@ -257,7 +263,7 @@ void mu_draw_rect(mu_Context *ctx, mu_Rect rect, mu_Color color);
 void mu_draw_box(mu_Context *ctx, mu_Rect rect, mu_Color color);
 void mu_draw_text(mu_Context *ctx, mu_Font font, const char *str, int len, mu_Vec2 pos, mu_Color color);
 void mu_draw_icon(mu_Context *ctx, int id, mu_Rect rect, mu_Color color);
-void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color);
+void mu_draw_art(mu_Context *ctx, int art, mu_Rect rect, mu_Color color, bool in_ss);
 
 void mu_layout_row(mu_Context *ctx, int items, const int *widths, int height);
 void mu_layout_width(mu_Context *ctx, int width);

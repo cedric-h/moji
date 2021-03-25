@@ -34,7 +34,7 @@ SubImg art_sub_img(Art art);
 #endif
 
 #define OFFSCREEN_SAMPLE_COUNT 4
-#define EMPTY_IMAGE rendr.empty_image
+#define FLAT_IMAGE rendr.flat_image
 typedef enum { Shape_Plane, Shape_GroundPlane, Shape_Cube, Shape_Circle } Shape;
 /* cached draw to be done at the end of a render */
 typedef struct {
@@ -42,6 +42,7 @@ typedef struct {
     Vec4 base_color, tint_color;
     Shape shape;
     SubImg img;
+    sg_image height_img;
 } Draw;
 
 static struct {
@@ -71,7 +72,7 @@ static struct {
     } offscreen;
 
     sg_image spritesheet;
-    sg_image empty_image;
+    sg_image flat_image;
 
     struct {
         Draw cache[500];
@@ -126,6 +127,12 @@ _PRIVATE void _smooth_normals(u16 *indices, int index_count, Vertex *verts) {
 }
 
 #define CIRCLE_RES 75
+#define GROUND_PLANE_RES 32 // (640/8)
+
+#define STATIC_INDICES (6 * 6 + 6 * 2) // cube + plane
+#define GROUND_PLANE_INDICES (((GROUND_PLANE_RES-1)*(GROUND_PLANE_RES-1))*6)
+#define CIRCLE_INDICES (3 * CIRCLE_RES)
+#define ALL_INDICES (STATIC_INDICES + GROUND_PLANE_INDICES + CIRCLE_INDICES)
 _PRIVATE void _rendr_init() {
     r_init(rendr.spritesheet);
     rendr.loaded = true;
@@ -164,7 +171,9 @@ _PRIVATE void _rendr_init() {
     });
 
     /* cube vertex buffer with positions & normals */
-    #define ALL_VERTS (4 * 6 + 4 * 2 + 4 + CIRCLE_RES)
+    #define STATIC_VERTS (4 * 6 + 4 * 2)
+    #define GROUND_PLANE_VERTS (GROUND_PLANE_RES*GROUND_PLANE_RES)
+    #define ALL_VERTS (STATIC_VERTS + GROUND_PLANE_VERTS + CIRCLE_RES)
     #define VERT_DATA_SIZE (ALL_VERTS * sizeof(Vertex))
     Vertex* vert_data = malloc(VERT_DATA_SIZE);
     Vertex *v = vert_data;
@@ -200,11 +209,6 @@ _PRIVATE void _rendr_init() {
     *v++ = (Vertex){{ 0.5f,1.0f,-0.5f},    0,    0,vec3f(0.0f)};
 
     
-    *v++ = (Vertex){{ 0.5f,0.0f, 0.5f},32767,    0,vec3f(0.0f)}; /*GroundPlane GEOMETRY*/
-    *v++ = (Vertex){{ 0.5f,0.0f,-0.5f},32767,32767,vec3f(0.0f)};
-    *v++ = (Vertex){{-0.5f,0.0f,-0.5f},    0,32767,vec3f(0.0f)};
-    *v++ = (Vertex){{-0.5f,0.0f, 0.5f},    0,    0,vec3f(0.0f)};
-
     *v++ = (Vertex){{-0.5f,0.0f, 0.0f},    0,32767,vec3f(0.0f)};  /*PLANE BACK FACE */
     *v++ = (Vertex){{ 0.5f,0.0f, 0.0f},32767,32767,vec3f(0.0f)};
     *v++ = (Vertex){{ 0.5f,1.0f, 0.0f},32767,    0,vec3f(0.0f)};
@@ -215,38 +219,66 @@ _PRIVATE void _rendr_init() {
     *v++ = (Vertex){{ 0.5f,1.0f, 0.0f},32767,    0,vec3f(0.0f)};
     *v++ = (Vertex){{-0.5f,1.0f, 0.0f},    0,    0,vec3f(0.0f)};
 
+    /* GroundPlane */
+    u16 pre_gp_verts = (u16) (v - vert_data);
+    assert(pre_gp_verts == STATIC_VERTS);
+    for (int x = 0; x < GROUND_PLANE_RES; x++)
+    for (int y = 0; y < GROUND_PLANE_RES; y++) {
+        Vec2 zto = div2f(vec2(x, y), GROUND_PLANE_RES-1);
+        *v++ = (Vertex) {
+            .pos = vec3(zto.x - 0.5, 0.0, zto.y - 0.5f),
+            .u = (int) (zto.x * 32767.0),
+            .v = (int) ((1.0 - zto.y) * 32767.0),
+        };
+    }
+
     u16 pre_cir_verts = (u16) (v - vert_data);
-    vert_data[pre_cir_verts] = (Vertex) { .u = 32767 / 2, .v = 32767 };
+    assert(pre_cir_verts == (STATIC_VERTS + GROUND_PLANE_VERTS));
+    *v++ = (Vertex) { .u = 32767 / 2, .v = 32767 };
     for (int i = 1; i < CIRCLE_RES; i++) {
         Vec3 pos = vec3(cosf((f32) (i-1) / (f32) (CIRCLE_RES-1) * TAU32),
                         sinf((f32) (i-1) / (f32) (CIRCLE_RES-1) * TAU32),
                         0.0f);
-        vert_data[pre_cir_verts + i] = (Vertex) {
+        *v++ = (Vertex) {
             .pos = pos,
-            .norm = vec3f(0.0f),
             .u = (i16) ((pos.x + 1.0f) / 2.0f * 32767.0f),
             .v = (i16) ((pos.y + 1.0f) / 2.0f * 32767.0f),
         };
     }
+    assert((u16) (v - vert_data) == ALL_VERTS);
 
-    #define STATIC_INDICES (6 + 6 * 6 + 6 * 2)
-    #define CYLINDER_INDICES (3 * CIRCLE_RES)
-    #define ALL_INDICES (STATIC_INDICES + CYLINDER_INDICES)
     uint16_t indices[ALL_INDICES] = {
         /* cube */
-        0, 1, 2,  0, 2, 3,
-        6, 5, 4,  7, 6, 4,
-        8, 9, 10,  8, 10, 11,
+         0,  1,  2,   0,  2,  3,
+         6,  5,  4,   7,  6,  4,
+         8,  9, 10,   8, 10, 11,
         14, 13, 12,  15, 14, 12,
         16, 17, 18,  16, 18, 19,
         22, 21, 20,  23, 22, 20,
         /* plane */
-        28, 29, 30,  28, 30, 31,
-        34, 33, 32,  35, 34, 32,
-        /* ground plane */
-        26, 25, 24,  27, 26, 24,
+        24, 25, 26,  24, 26, 27,
+        30, 29, 28,  31, 30, 28,
     };
     int writer = STATIC_INDICES;
+    for (u16 i = pre_gp_verts; i < pre_cir_verts-GROUND_PLANE_RES-1; i++) {
+       /*  0 = [0, 0];
+           1 = [0, 1];
+           2 = [1, 1];
+           3 = [1, 0];
+
+           2, 1, 0,  3, 2, 0
+       */
+       if ((GROUND_PLANE_RES-1) == (i % GROUND_PLANE_RES)) continue;
+       indices[writer++] = i + 1 + GROUND_PLANE_RES;
+       indices[writer++] = i + 1;
+       indices[writer++] = i;
+
+       indices[writer++] = i + GROUND_PLANE_RES;
+       indices[writer++] = i + 1 + GROUND_PLANE_RES;
+       indices[writer++] = i;
+    }
+    int desired = STATIC_INDICES + GROUND_PLANE_INDICES;
+    assert(writer == desired);
     for (u16 i = pre_cir_verts + 1; i < ALL_VERTS; i++) {
         u16 l = (i == (pre_cir_verts + 1)) ? (ALL_VERTS - 1) : (i - 1);
         u16 r = i;
@@ -342,12 +374,13 @@ _PRIVATE void _rendr_init() {
         .fs_images[SLOT_shadowMap] = color_img
     };
 
-    u64 pixels[1] = { 0x00000000 };
-    rendr.empty_image = sg_make_image(&(sg_image_desc) {
+    u8 pixels[1] = { 0xFF };
+    rendr.flat_image = sg_make_image(&(sg_image_desc) {
         .width = 1,
         .height = 1,
+        .pixel_format = SG_PIXELFORMAT_R8,
         .data.subimage[0][0] = SG_RANGE(pixels),
-        .label = "empty texture"
+        .label = "flat texture"
     });
 }
 
@@ -496,8 +529,30 @@ sg_image rendr_mapgen_tex(int size, void (*mapgen)(uint8_t *, int, void*), void 
     return ret;
 }
 
+sg_image rendr_make_height_img(uint8_t *img, int size) {
+    /* NOTE: https://github.com/floooh/sokol/issues/102 */
+    return sg_make_image(&(sg_image_desc) {
+        .width = size,
+        .height = size,
+        .pixel_format = SG_PIXELFORMAT_R8,
+        .min_filter = SG_FILTER_LINEAR,
+        .mag_filter = SG_FILTER_LINEAR,
+        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+        .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+        .data.subimage[0][0] = (sg_range) {
+            .ptr = img,
+            .size = size * size,
+        },
+        .label = "rendr_mapgen_tex",
+    });
+}
+
 _PRIVATE void _draw_default(Draw *d) {
     rendr.deflt.bind.fs_images[SLOT_art] = d->img.src;
+    rendr.deflt.bind.vs_images[SLOT_heightMap] =
+        (d->height_img.id == 0)
+          ? rendr.flat_image
+          : d->height_img;
     sg_apply_bindings(&rendr.deflt.bind);
 
     vs_light_params_t vs_light_params = {
@@ -512,11 +567,12 @@ _PRIVATE void _draw_default(Draw *d) {
     sg_apply_uniforms(SG_SHADERSTAGE_VS,
                       SLOT_vs_light_params,
                       &SG_RANGE(vs_light_params));
+    #define CIRCLE_START (STATIC_INDICES + GROUND_PLANE_INDICES)
     switch (d->shape) {
-    case Shape_Cube:;        sg_draw(    0,          6 * 6, 1); break;
-    case Shape_Plane:;       sg_draw(6 * 6,          2 * 6, 1); break;
-    case Shape_GroundPlane:; sg_draw(8 * 6,          1 * 6, 1); break;
-    case Shape_Circle:;      sg_draw(9 * 6, CIRCLE_RES * 3, 1); break;
+    case Shape_Cube:;        sg_draw(    0,                         6 * 6, 1); break;
+    case Shape_Plane:;       sg_draw(6 * 6,                         2 * 6, 1); break;
+    case Shape_GroundPlane:; sg_draw(STATIC_INDICES, GROUND_PLANE_INDICES, 1); break;
+    case Shape_Circle:;      sg_draw(  CIRCLE_START,       CIRCLE_INDICES, 1); break;
     }
 }
 

@@ -56,6 +56,7 @@ struct Ent {
     Shape shape;
     Vec4 base_color, tint_color;
     SubImg img;
+    sg_image height_img;
 
     /* bob animation */
     f32 bob_scale, bob_freq;
@@ -170,17 +171,20 @@ void frame(void) {
             _ui.minimap = rendr_mapgen_tex(128, mapgen_minimap_img, NULL);
 
             float tile_size = 40.0f / 200.0f;
+            /* works because tile_size is expressed as a portion of a 0..1 tile */
+            int tile_pixels = (int) ((200.0f * 16.0f) * tile_size);
             mapgen_GroundOpts opts = {
                 .tile_corner = vec2f(0.5f - tile_size / 2.0f),
                 .tile_size = tile_size,
+                .height_map = malloc(pow(tile_pixels, 2)),
             };
-            /* works because tile_size is expressed as a portion of a 0..1 tile */
-            int tile_pixels = (int) ((200.0 * 16.0) * tile_size);
             Ent *e = add_ent();
             e->shape = Shape_GroundPlane;
-            e->img = art_sub_img(Art_Cactus);
-            e->img = full_sub_img(rendr_mapgen_tex(tile_pixels, mapgen_ground_img, &opts));
             e->scale = vec3f(40.0f);
+            sg_image img = rendr_mapgen_tex(tile_pixels, mapgen_ground_img, &opts);
+            e->img = full_sub_img(img);
+            e->height_img = rendr_make_height_img(opts.height_map, tile_pixels);
+            free(opts.height_map);
         }
         {
             Ent *e = add_ent();

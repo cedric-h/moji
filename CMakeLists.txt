@@ -118,6 +118,7 @@ foreach (targ client server)
     else()
       target_compile_options(${targ} PRIVATE -Wall -Wextra -Werror
                                              -Wno-missing-braces
+                                             # -g -O0
                                              -Wno-missing-field-initializers)
     endif()
 

@@ -141,6 +141,7 @@ uniform vs_light_params {
 in vec4 position;
 in vec2 uv;
 in vec3 normal;
+uniform sampler2D heightMap;
 
 out vec4 lightProjPos;
 out vec4 P;
@@ -150,9 +151,12 @@ out vec4 base;
 out vec2 tex_coord;
 
 void main() {
-    gl_Position = mvp * position;
-    lightProjPos = lightMVP * position;
-    P = (model * position);
+    vec4 pos = position;
+    pos.y -= (1.0 - texture(heightMap, uv).x) * 0.0348;
+
+    gl_Position = mvp * pos;
+    lightProjPos = lightMVP * pos;
+    P = (model * pos);
     N = (model * vec4(normal, 0.0)).xyz;
     tint = tintColor;
     base = baseColor;

@@ -94,8 +94,10 @@ void _mapgen_blur(uint8_t *img, int img_size, int k) {
 }
 
 typedef struct {
-    Vec2  tile_corner;   /* 0, 0 for top-left */
-    float tile_size;     /* 1.0 for whole map */
+    Vec2    tile_corner; /* 0, 0 for top-left */
+    float   tile_size;   /* 1.0 for whole map */
+    uint8_t *height_map; /* some memory to write a height map into.
+                            needs pow(img_size, 2) bytes, ignored if NULL */
 } mapgen_GroundOpts;
 
 Vec2 _mapgen_pixel_world_pos(int x, int y, int img_size, mapgen_GroundOpts *opts) {
@@ -167,6 +169,23 @@ void mapgen_ground_img(uint8_t *img, int img_size, void *options) {
         img[i+1] = rgb.g;
         img[i+2] = rgb.b;
         img[i+3] = 255;
+
+        if (opts->height_map != NULL) {
+            uint8_t height = 255;
+            switch (biome) {
+            case (_mapgen_Biome_Ocean4): height =   0; break; // (clouded)
+            case (_mapgen_Biome_Ocean3): height =   2; break; // (clouded)
+            case (_mapgen_Biome_Ocean2): height =   2; break;
+            case (_mapgen_Biome_Ocean1): height =   3; break;
+            case (_mapgen_Biome_Sand1 ): height =  51; break;
+            case (_mapgen_Biome_Sand2 ): height =  77; break;
+            case (_mapgen_Biome_Sand3 ): height = 128; break;
+            case (_mapgen_Biome_Sand4 ): height = 204; break;
+            case (_mapgen_Biome_Sand5 ): height = 242; break;
+            default                    : height = 255; break;
+            };
+            opts->height_map[y * img_size + x] = height;
+        }
     }
     _mapgen_texture_sand_pixels(img, biomes, img_size, opts);
     _mapgen_blur(img, img_size, 3);

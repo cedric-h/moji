@@ -91,6 +91,7 @@ void draw_ent(Ent *e) {
         .base_color = e->base_color,
         .tint_color = e->tint_color,
         .img        = e->img,
+        .height_img = e->height_img,
         .shape      = e->shape,
     };
     submit_draw(draw);

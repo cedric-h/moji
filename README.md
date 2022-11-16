@@ -2,6 +2,9 @@
 
 A game written in C99 with minimal dependencies for Windows, macOS, Linux and WASM.
 
+![screenshot 1](./moji.png)
+![screenshot 2](./nomoji.png)
+
 ## Clone, Build and Run (Linux, macOS, Windows)
 
 On the command line:
